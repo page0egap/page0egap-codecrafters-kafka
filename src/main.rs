@@ -16,7 +16,7 @@ fn main() {
             Ok(mut stream) => {
                 println!("accepted new connection");
                 let mut buffer: Vec<u8> = Vec::new();
-                stream.read_to_end(&mut buffer).unwrap();
+                stream.read(&mut buffer).unwrap();
                 println!("{}", String::from_utf8(buffer).unwrap());
 
                 // generate response
