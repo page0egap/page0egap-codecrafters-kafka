@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
-use std::net::TcpListener;
+use std::{io::{Read, Write}, net::TcpListener};
+
+use codecrafters_kafka::{header::KafkaHeader, response::KafkaResponse};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -11,8 +13,18 @@ fn main() {
     //
     for stream in listener.incoming() {
         match stream {
-            Ok(_stream) => {
+            Ok(mut stream) => {
                 println!("accepted new connection");
+                let mut buffer: Vec<u8> = Vec::new();
+                stream.read_to_end(&mut buffer).unwrap();
+                println!("{}", String::from_utf8(buffer).unwrap());
+
+                // generate response
+                let header = KafkaHeader::new_v0(7);
+                let response = KafkaResponse::empty(header);
+                let response_bytes = KafkaResponse::to_bytes(response);
+                stream.write(&response_bytes).unwrap();
+                println!("response to new connection");
             }
             Err(e) => {
                 println!("error: {}", e);
