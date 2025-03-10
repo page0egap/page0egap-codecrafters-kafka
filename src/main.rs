@@ -1,5 +1,8 @@
 #![allow(unused_imports)]
-use std::{io::{Read, Write}, net::TcpListener};
+use std::{
+    io::{Read, Write},
+    net::TcpListener,
+};
 
 use codecrafters_kafka::{header::KafkaHeader, response::KafkaResponse};
 
@@ -15,9 +18,9 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
-                // let mut buffer: Vec<u8> = Vec::new();
-                // stream.read(&mut buffer).unwrap();
-                // println!("{}", String::from_utf8(buffer).unwrap());
+                let mut buffer = [0u8; 128];
+                stream.read(&mut buffer).unwrap();
+                println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
 
                 // generate response
                 let header = KafkaHeader::new_v0(7);
