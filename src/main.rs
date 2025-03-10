@@ -15,9 +15,9 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
-                let mut buffer: Vec<u8> = Vec::new();
-                stream.read(&mut buffer).unwrap();
-                println!("{}", String::from_utf8(buffer).unwrap());
+                // let mut buffer: Vec<u8> = Vec::new();
+                // stream.read(&mut buffer).unwrap();
+                // println!("{}", String::from_utf8(buffer).unwrap());
 
                 // generate response
                 let header = KafkaHeader::new_v0(7);
