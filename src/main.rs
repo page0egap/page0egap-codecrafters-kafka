@@ -23,7 +23,7 @@ fn main() {
                 let header = KafkaHeader::new_v0(7);
                 let response = KafkaResponse::empty(header);
                 let response_bytes = KafkaResponse::to_bytes(response);
-                stream.write(&response_bytes).unwrap();
+                stream.write_all(&response_bytes).unwrap();
                 println!("response to new connection");
             }
             Err(e) => {
