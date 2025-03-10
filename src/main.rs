@@ -24,7 +24,7 @@ fn main() {
                 let mut buffer = [0u8; 1024];
                 stream.read(&mut buffer).unwrap();
                 let request = KafkaRequest::from_slice(&buffer);
-                println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
+                // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
 
                 // generate response
                 let response = KafkaResponse::from_request(&request);
