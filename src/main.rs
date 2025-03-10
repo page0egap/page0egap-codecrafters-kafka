@@ -4,7 +4,10 @@ use std::{
     net::TcpListener,
 };
 
-use codecrafters_kafka::{request::KafkaRequest, response::{KafkaResponse, KafkaResponseHeader}};
+use codecrafters_kafka::{
+    request::{self, KafkaRequest},
+    response::{KafkaResponse, KafkaResponseHeader},
+};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -20,12 +23,11 @@ fn main() {
                 println!("accepted new connection");
                 let mut buffer = [0u8; 1024];
                 stream.read(&mut buffer).unwrap();
-                let correlation_id = KafkaRequest::from_slice(&buffer).correlation_id();
+                let request = KafkaRequest::from_slice(&buffer);
                 println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
 
                 // generate response
-                let header = KafkaResponseHeader::new_v0(correlation_id);
-                let response = KafkaResponse::empty(header);
+                let response = KafkaResponse::from_request(&request);
                 let response_bytes = KafkaResponse::to_bytes(response);
                 stream.write_all(&response_bytes).unwrap();
                 println!("response to new connection");

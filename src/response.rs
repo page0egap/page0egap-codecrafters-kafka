@@ -1,32 +1,20 @@
-use std::marker::PhantomData;
+use crate::request::request_api_key::RequestApiKey;
 
-pub enum KafkaResponseHeader {
-    V0(KafkaResponseHeaderV0),
-}
+pub mod error_code;
+mod response_body;
+mod response_header;
 
-pub struct KafkaResponseHeaderV0 {
-    correlation_id: i32,
-}
+use response_body::KafkaResponseBody;
+pub use response_header::KafkaResponseHeader;
 
-impl KafkaResponseHeader {
-    pub fn new_v0(correlation_id: i32) -> Self {
-        KafkaResponseHeader::V0(KafkaResponseHeaderV0 { correlation_id })
-    }
+use crate::request::KafkaRequest;
 
-    pub fn to_bytes(self) -> Vec<u8> {
-        match self {
-            KafkaResponseHeader::V0(kafka_header_v0) => {
-                kafka_header_v0.correlation_id.to_be_bytes().to_vec()
-            }
-        }
-    }
-}
-
+// pub struct KafkaResponse
 
 pub struct KafkaResponse {
     message_size: i32,
     header: KafkaResponseHeader,
-    body: PhantomData<()>,
+    body: KafkaResponseBody,
 }
 
 impl KafkaResponse {
@@ -34,7 +22,7 @@ impl KafkaResponse {
         KafkaResponse {
             message_size: 0,
             header,
-            body: PhantomData,
+            body: KafkaResponseBody::Empty,
         }
     }
 
@@ -42,7 +30,24 @@ impl KafkaResponse {
         self.message_size
             .to_be_bytes()
             .into_iter()
-            .chain(self.header.to_bytes())
+            .chain(self.header.to_vec())
+            .chain(self.body.to_vec())
             .collect()
+    }
+}
+
+impl KafkaResponse {
+    pub fn from_request(request: &KafkaRequest) -> Self {
+        let header = KafkaResponseHeader::new_v0(request.correlation_id());
+        let body = match request.request_api_key() {
+            RequestApiKey::Produce => todo!(),
+            RequestApiKey::Fetch => todo!(),
+            RequestApiKey::ApiVersions => KafkaResponseBody::api_versions(request),
+        };
+        Self {
+            message_size: 0,
+            header,
+            body,
+        }
     }
 }
