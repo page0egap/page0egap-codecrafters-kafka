@@ -17,8 +17,9 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
+                stream.set_nonblocking(true).unwrap();
                 println!("accepted new connection");
-                let mut buffer = [0u8; 128];
+                let mut buffer = Vec::new();
                 stream.read(&mut buffer).unwrap();
                 println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
 
