@@ -24,6 +24,11 @@ fn main() {
                 let mut buffer = [0u8; 1024];
                 stream.read(&mut buffer).unwrap();
                 let request = KafkaRequest::try_from_slice(&buffer);
+                if request.is_ok() {
+                    dbg!("Request is valid!");
+                } else {
+                    dbg!("Request is invalid!");
+                }
                 // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
                 // generate response
                 let response = KafkaResponse::from_request(&request);
