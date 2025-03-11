@@ -81,11 +81,17 @@ impl Into<Vec<u8>> for KafkaResponse {
     fn into(self) -> Vec<u8> {
         let header_vec: Vec<u8> = self.header.into();
         let body_vec: Vec<u8> = self.body.into();
-        let message_size = body_vec.len();
-        let message_size = i32::try_from(message_size).unwrap_or_else(|_| {
-            dbg!("body size too large for i32");
-            i32::MAX
-        });
+        let message_size = match header_vec
+            .len()
+            .checked_add(body_vec.len())
+            .map(i32::try_from)
+        {
+            Some(Ok(size)) => size,
+            _ => {
+                dbg!("whole response size is too large than i32::MAX");
+                i32::MAX
+            }
+        };
         message_size
             .to_be_bytes()
             .into_iter()
