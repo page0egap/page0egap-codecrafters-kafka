@@ -25,6 +25,7 @@ fn main() {
                 stream.read(&mut buffer).unwrap();
                 let request = KafkaRequest::try_from_slice(&buffer);
                 // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
+                dbg!("trying to debug!");
 
                 // generate response
                 let response = KafkaResponse::from_request(&request);
