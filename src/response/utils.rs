@@ -13,3 +13,15 @@ pub fn tagged_fields_to_vec(tagged_fields: &[(usize, Vec<u8>)]) -> Vec<u8> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::tagged_fields_to_vec;
+
+    #[test]
+    fn test_emtpy_vector() {
+        let vec = Vec::new();
+        let result = tagged_fields_to_vec(&vec);
+        assert_eq!(result, vec![0u8])
+    }
+}
