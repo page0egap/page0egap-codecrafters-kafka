@@ -26,7 +26,9 @@ fn main() {
                 let request = KafkaRequest::try_from_slice(&buffer);
                 if request.is_ok() {
                     dbg!("Request is valid!");
-                    if let KafkaRequestBody::ApiVersions(inner) = request.unwrap().request_body() {
+                    if let KafkaRequestBody::ApiVersions(inner) =
+                        request.as_ref().unwrap().request_body()
+                    {
                         dbg!(
                             "Request is ApiVersions with api_version {}",
                             inner.get_api_version()
