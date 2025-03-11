@@ -5,7 +5,7 @@ use std::{
 };
 
 use codecrafters_kafka::{
-    request::{self, KafkaRequest},
+    request::{self, body::KafkaRequestBody, KafkaRequest},
     response::{KafkaResponse, KafkaResponseHeader},
 };
 
@@ -26,6 +26,12 @@ fn main() {
                 let request = KafkaRequest::try_from_slice(&buffer);
                 if request.is_ok() {
                     dbg!("Request is valid!");
+                    if let KafkaRequestBody::ApiVersions(inner) = request.unwrap().request_body() {
+                        dbg!(
+                            "Request is ApiVersions with api_version {}",
+                            inner.get_api_version()
+                        );
+                    }
                 } else {
                     dbg!("Request is invalid!");
                 }
