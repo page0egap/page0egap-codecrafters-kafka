@@ -28,14 +28,21 @@ pub struct KafkaRequestHeader {
 
 // public function
 impl KafkaRequest {
-    pub fn try_from_slice(slice: &[u8]) -> Result<Self, RequestError> {
-        let mut cursor = Cursor::new(slice);
-        let message_size = cursor.read_i32::<BigEndian>().unwrap();
-        let header = KafkaRequestHeader::try_from_reader(&mut cursor).map_err(|e| {
+    pub fn try_from_reader<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
+        let message_size = reader
+            .read_i32::<BigEndian>()
+            .map_err(|_e| RequestError::EOF)?;
+        let mut buf = vec![0u8; message_size as usize];
+        reader
+            .read_exact(&mut buf)
+            .map_err(|_e| RequestError::EOF)?;
+
+        let mut buf = Cursor::new(buf);
+        let header = KafkaRequestHeader::try_from_reader(&mut buf).map_err(|e| {
             dbg!("header is invalid! {e}");
             e
         })?;
-        let body = KafkaRequestBody::try_parse_body(&header, &mut cursor).map_err(|e| {
+        let body = KafkaRequestBody::try_parse_body(&header, &mut buf).map_err(|e| {
             dbg!("body is invalid! {e}");
             e
         })?;

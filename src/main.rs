@@ -5,7 +5,7 @@ use std::{
 };
 
 use codecrafters_kafka::{
-    request::{self, body::KafkaRequestBody, KafkaRequest},
+    request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest},
     response::{KafkaResponse, KafkaResponseHeader},
 };
 
@@ -21,22 +21,23 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
-                let mut buffer = [0u8; 1024];
-                stream.read(&mut buffer).unwrap();
-                let request = KafkaRequest::try_from_slice(&buffer);
-                // if dbg!(request.is_ok()) {
-                //     if let KafkaRequestBody::ApiVersions(inner) =
-                //         request.as_ref().unwrap().request_body()
-                //     {
-                //         dbg!(inner.get_api_version());
-                //     }
-                // }
-                // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
-                // generate response
-                let response = KafkaResponse::from_request(&request);
-                let response_bytes: Vec<u8> = response.into();
-                stream.write_all(&response_bytes).unwrap();
-                println!("response to new connection");
+                while (true) {
+                    let request = KafkaRequest::try_from_reader(&mut stream);
+                    if let Err(e) = request.as_ref() {
+                        match e {
+                            RequestError::EOF => break,
+                            _ => (),
+                        }
+                    }
+                    println!("recieve new request");
+                    // generate response
+                    let response = KafkaResponse::from_request(&request);
+                    let response_bytes: Vec<u8> = response.into();
+                    stream.write_all(&response_bytes).unwrap();
+                    println!("response to new request");
+                }
+
+                println!("close the connection");
             }
             Err(e) => {
                 println!("error: {}", e);
