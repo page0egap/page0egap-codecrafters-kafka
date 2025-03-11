@@ -34,7 +34,7 @@ fn main() {
                 // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
                 // generate response
                 let response = KafkaResponse::from_request(&request);
-                let response_bytes: Vec<u8> = dbg!(response.into());
+                let response_bytes: Vec<u8> = response.into();
                 stream.write_all(&response_bytes).unwrap();
                 println!("response to new connection");
             }
