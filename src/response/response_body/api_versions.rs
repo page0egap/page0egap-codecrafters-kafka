@@ -96,7 +96,7 @@ impl KafkaResponseBodyApiVersions {
         //     KafkaError::UnsupportedVersion
         // };
         let error_code = KafkaError::None;
-        let api_keys = Default::default();
+        let api_keys = vec![Default::default()];
         let throttle_time_ms = 0;
         match api_version {
             SupportApiVersionsRequestVersion::V0 => Self::V0(ApiVersionsResponseBodyV0 {
