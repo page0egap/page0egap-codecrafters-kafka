@@ -145,7 +145,11 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV0 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_length = api_keys.len();
+        let api_keys_encode_length = if api_keys.len() == 0 {
+            0
+        } else {
+            api_keys.len() + 1
+        };
         let api_key_iter = api_keys
             .into_iter()
             .map(|api_key| {
@@ -156,7 +160,7 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV0 {
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_length.encode_var_vec())
+            .chain(api_keys_encode_length.encode_var_vec())
             .chain(api_key_iter)
             .collect()
     }
@@ -167,7 +171,11 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV1 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_length = api_keys.len();
+        let api_keys_encode_length = if api_keys.len() == 0 {
+            0
+        } else {
+            api_keys.len() + 1
+        };
         let throttle_time_ms = self.throttle_time_ms;
 
         let api_key_iter = api_keys
@@ -180,7 +188,7 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV1 {
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_length.encode_var_vec())
+            .chain(api_keys_encode_length.encode_var_vec())
             .chain(api_key_iter)
             .chain(throttle_time_ms.to_be_bytes())
             .collect()
@@ -192,7 +200,11 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV2 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_length = api_keys.len();
+        let api_keys_encode_length = if api_keys.len() == 0 {
+            0
+        } else {
+            api_keys.len() + 1
+        };
         let throttle_time_ms = self.throttle_time_ms;
 
         let api_key_iter = api_keys
@@ -205,7 +217,7 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV2 {
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_length.encode_var_vec())
+            .chain(api_keys_encode_length.encode_var_vec())
             .chain(api_key_iter)
             .chain(throttle_time_ms.to_be_bytes())
             .collect()
@@ -217,7 +229,11 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV3 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_length = api_keys.len();
+        let api_keys_encode_length = if api_keys.len() == 0 {
+            0
+        } else {
+            api_keys.len() + 1
+        };
         let throttle_time_ms = self.throttle_time_ms;
         let empty_tagged_fields = Vec::new();
 
@@ -232,7 +248,7 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV3 {
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_length.encode_var_vec())
+            .chain(api_keys_encode_length.encode_var_vec())
             .chain(api_key_iter)
             .chain(throttle_time_ms.to_be_bytes())
             .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
@@ -245,7 +261,11 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV4 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_length = api_keys.len();
+        let api_keys_encode_length = if api_keys.len() == 0 {
+            0
+        } else {
+            api_keys.len() + 1
+        };
         let throttle_time_ms = self.throttle_time_ms;
         let empty_tagged_fields = Vec::new();
 
@@ -260,7 +280,7 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV4 {
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_length.encode_var_vec())
+            .chain(api_keys_encode_length.encode_var_vec())
             .chain(api_key_iter)
             .chain(throttle_time_ms.to_be_bytes())
             .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
