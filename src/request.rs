@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read};
+use std::io::{self, Cursor, Read};
 
 use api_key::RequestApiKey;
 use body::KafkaRequestBody;
@@ -14,7 +14,6 @@ pub struct UnParsedBody;
 
 #[allow(dead_code)]
 pub struct KafkaRequest {
-    message_size: i32,
     header: KafkaRequestHeader,
     body: KafkaRequestBody,
 }
@@ -28,29 +27,27 @@ pub struct KafkaRequestHeader {
 
 // public function
 impl KafkaRequest {
-    pub fn try_from_reader<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
-        let message_size = reader
-            .read_i32::<BigEndian>()
-            .map_err(|_e| RequestError::EOF)?;
+    pub fn try_from_reader<R: Read>(
+        reader: &mut R,
+    ) -> Result<Result<Self, RequestError>, io::Error> {
+        let message_size = reader.read_i32::<BigEndian>()?;
         let mut buf = vec![0u8; message_size as usize];
-        reader
-            .read_exact(&mut buf)
-            .map_err(|_e| RequestError::EOF)?;
+        reader.read_exact(&mut buf)?;
 
-        let mut buf = Cursor::new(buf);
-        let header = KafkaRequestHeader::try_from_reader(&mut buf).map_err(|e| {
+        let mut reader = Cursor::new(buf);
+        Ok(Self::parse_header_and_body(&mut reader))
+    }
+
+    fn parse_header_and_body<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
+        let header = KafkaRequestHeader::try_from_reader(reader).map_err(|e| {
             dbg!("header is invalid! {e}");
             e
         })?;
-        let body = KafkaRequestBody::try_parse_body(&header, &mut buf).map_err(|e| {
+        let body = KafkaRequestBody::try_parse_body(&header, reader).map_err(|e| {
             dbg!("body is invalid! {e}");
             e
         })?;
-        Ok(KafkaRequest {
-            message_size,
-            header,
-            body,
-        })
+        Ok(KafkaRequest { header, body })
     }
 }
 

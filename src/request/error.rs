@@ -16,6 +16,4 @@ pub enum RequestError {
         field: Cow<'static, str>,
         correlation_id: i32,
     },
-    #[error("Requests End")]
-    EOF,
 }

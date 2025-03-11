@@ -21,14 +21,15 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
-                while (true) {
+                loop {
                     let request = KafkaRequest::try_from_reader(&mut stream);
-                    if let Err(e) = request.as_ref() {
-                        match e {
-                            RequestError::EOF => break,
-                            _ => (),
+                    let request = match request {
+                        Ok(r) => r,
+                        Err(_e) => {
+                            dbg!("stream is eof");
+                            break;
                         }
-                    }
+                    };
                     println!("recieve new request");
                     // generate response
                     let response = KafkaResponse::from_request(&request);
