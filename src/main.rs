@@ -24,23 +24,17 @@ fn main() {
                 let mut buffer = [0u8; 1024];
                 stream.read(&mut buffer).unwrap();
                 let request = KafkaRequest::try_from_slice(&buffer);
-                if request.is_ok() {
-                    dbg!("Request is valid!");
+                if dbg!(request.is_ok()) {
                     if let KafkaRequestBody::ApiVersions(inner) =
                         request.as_ref().unwrap().request_body()
                     {
-                        dbg!(
-                            "Request is ApiVersions with api_version {}",
-                            inner.get_api_version()
-                        );
+                        dbg!(inner.get_api_version());
                     }
-                } else {
-                    dbg!("Request is invalid!");
                 }
                 // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
                 // generate response
                 let response = KafkaResponse::from_request(&request);
-                let response_bytes: Vec<u8> = response.into();
+                let response_bytes: Vec<u8> = dbg!(response.into());
                 stream.write_all(&response_bytes).unwrap();
                 println!("response to new connection");
             }
