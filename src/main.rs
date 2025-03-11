@@ -23,12 +23,12 @@ fn main() {
                 println!("accepted new connection");
                 let mut buffer = [0u8; 1024];
                 stream.read(&mut buffer).unwrap();
-                let request = KafkaRequest::from_slice(&buffer);
+                let request = KafkaRequest::try_from_slice(&buffer);
                 // println!("{}", String::from_utf8(buffer.to_vec()).unwrap());
 
                 // generate response
                 let response = KafkaResponse::from_request(&request);
-                let response_bytes = KafkaResponse::to_bytes(response);
+                let response_bytes: Vec<u8> = response.into();
                 stream.write_all(&response_bytes).unwrap();
                 println!("response to new connection");
             }

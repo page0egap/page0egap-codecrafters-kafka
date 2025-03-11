@@ -1,11 +1,14 @@
 use std::io::{Cursor, Read};
 
-use request_body::KafkaRequestBody;
+use api_key::RequestApiKey;
+use body::KafkaRequestBody;
 use byteorder::{BigEndian, ReadBytesExt};
-use request_api_key::RequestApiKey;
+use error::RequestError;
 
-pub mod request_api_key;
-pub mod request_body;
+pub mod api_key;
+pub mod body;
+pub mod error;
+mod utils;
 
 pub struct UnParsedBody;
 
@@ -25,48 +28,61 @@ pub struct KafkaRequestHeader {
 
 // public function
 impl KafkaRequest {
-    pub fn from_slice(slice: &[u8]) -> Self {
+    pub fn try_from_slice(slice: &[u8]) -> Result<Self, RequestError> {
         let mut cursor = Cursor::new(slice);
         let message_size = cursor.read_i32::<BigEndian>().unwrap();
-        let header = KafkaRequestHeader::from_reader(&mut cursor);
-        let body = KafkaRequestBody::parse_body(&header, &mut cursor);
-        KafkaRequest {
+        let header = KafkaRequestHeader::try_from_reader(&mut cursor)?;
+        let body = KafkaRequestBody::try_parse_body(&header, &mut cursor)?;
+        Ok(KafkaRequest {
             message_size,
             header,
             body,
-        }
+        })
     }
 }
 
 impl KafkaRequest {
+    #[inline]
     pub fn request_api_key(&self) -> &RequestApiKey {
         &self.header.request_api_key
     }
 
+    #[inline]
     pub fn request_api_version(&self) -> i16 {
         self.header.request_api_version
     }
 
+    #[inline]
     pub fn correlation_id(&self) -> i32 {
         self.header.correlation_id
+    }
+
+    #[inline]
+    pub fn request_body(&self) -> &KafkaRequestBody {
+        &self.body
     }
 }
 
 impl KafkaRequestHeader {
     #[allow(unused)]
-    fn from_slice(slice: &[u8]) -> Self {
+    fn try_from_slice(slice: &[u8]) -> Result<Self, RequestError> {
         let mut cursor = Cursor::new(slice);
-        Self::from_reader(&mut cursor)
+        Self::try_from_reader(&mut cursor)
     }
 
-    fn from_reader<R: Read>(reader: &mut R) -> Self {
+    fn try_from_reader<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
         let request_api_key = reader.read_u16::<BigEndian>().unwrap();
         let request_api_version = reader.read_i16::<BigEndian>().unwrap();
         let correlation_id = reader.read_i32::<BigEndian>().unwrap();
-        KafkaRequestHeader {
-            request_api_key: request_api_key.try_into().unwrap(),
+        Ok(KafkaRequestHeader {
+            request_api_key: request_api_key.try_into().map_err(|_| {
+                RequestError::UnsupportedApiKey {
+                    api_key: request_api_key,
+                    correlation_id,
+                }
+            })?,
             request_api_version,
             correlation_id,
-        }
+        })
     }
 }

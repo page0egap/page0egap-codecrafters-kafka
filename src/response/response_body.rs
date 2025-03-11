@@ -1,6 +1,6 @@
 use api_versions::KafkaResponseBodyApiVersions;
 
-use crate::request::KafkaRequest;
+use crate::request::body::api_versions::ApiVersionsRequestBody;
 
 mod api_versions;
 pub enum KafkaResponseBody {
@@ -8,21 +8,23 @@ pub enum KafkaResponseBody {
     ApiVersions(KafkaResponseBodyApiVersions),
 }
 
+/// ApiVersions
 impl KafkaResponseBody {
-    pub fn api_versions(request: &KafkaRequest) -> Self {
-        Self::ApiVersions(KafkaResponseBodyApiVersions::new(
-            request.request_api_version(),
-        ))
+    pub fn from_api_versions_request_body(body: &ApiVersionsRequestBody) -> Self {
+        Self::ApiVersions(KafkaResponseBodyApiVersions::new(body.get_api_version()))
+    }
+
+    pub fn from_api_versions_with_invalid_api_version(_api_version: i16) -> Self {
+        Self::ApiVersions(KafkaResponseBodyApiVersions::error())
     }
 }
 
-impl KafkaResponseBody {
+impl Into<Vec<u8>> for KafkaResponseBody {
     #[inline]
-    pub fn to_vec(self) -> Vec<u8> {
+    fn into(self) -> Vec<u8> {
         match self {
             KafkaResponseBody::Empty => Vec::new(),
-            KafkaResponseBody::ApiVersions(kafka_response_body_api_versions) => 
-            kafka_response_body_api_versions.into()
+            KafkaResponseBody::ApiVersions(inner) => inner.into(),
         }
     }
 }

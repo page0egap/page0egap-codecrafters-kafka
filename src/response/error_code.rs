@@ -1,10 +1,15 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-
+use thiserror::Error;
 
 #[repr(i16)]
-#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
-pub enum ErrorCode {
+#[derive(Error, Debug, TryFromPrimitive, IntoPrimitive)]
+pub enum KafkaError {
+    #[error("UnknownServerError")]
     UnknownServerError = -1,
+    #[error("None")]
     None = 0,
+    #[error("UnsupportedVersion")]
     UnsupportedVersion = 35,
+    #[error("InvalidRequest")]
+    InvalidRequest = 42,
 }

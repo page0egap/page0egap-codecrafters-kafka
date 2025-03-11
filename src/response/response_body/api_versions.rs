@@ -1,24 +1,216 @@
-use crate::response::error_code::ErrorCode;
+use crate::{
+    consts::api_versions::{
+        SupportApiVersionsRequestVersion, API_VERSIONS_API_KEY, API_VERSIONS_MAX_VERSION,
+        API_VERSIONS_MIN_VERSION,
+    },
+    response::{self, error_code::KafkaError},
+};
 
-pub struct KafkaResponseBodyApiVersions {
-    error_code: ErrorCode,
+pub enum KafkaResponseBodyApiVersions {
+    V0(ApiVersionsResponseBodyV0),
+    V1(ApiVersionsResponseBodyV1),
+    V2(ApiVersionsResponseBodyV2),
+    V3(ApiVersionsResponseBodyV3),
+    V4(ApiVersionsResponseBodyV4),
+}
+
+pub struct ApiVersionsResponseBodyV0 {
+    error_code: KafkaError,
+    api_keys: ApiKeyRange,
+}
+
+pub struct ApiVersionsResponseBodyV1 {
+    error_code: KafkaError,
+    api_keys: ApiKeyRange,
+    /// The duration in milliseconds for which the request was throttled due to
+    /// a quota violation, or zero if the request did not violate any quota.
+    throttle_time_ms: i32,
+}
+
+pub struct ApiVersionsResponseBodyV2 {
+    error_code: KafkaError,
+    api_keys: ApiKeyRange,
+    /// The duration in milliseconds for which the request was throttled due to
+    /// a quota violation, or zero if the request did not violate any quota.
+    throttle_time_ms: i32,
+}
+
+pub struct ApiVersionsResponseBodyV3 {
+    error_code: KafkaError,
+    api_keys: ApiKeyRange,
+    /// The duration in milliseconds for which the request was throttled due to
+    /// a quota violation, or zero if the request did not violate any quota.
+    throttle_time_ms: i32,
+}
+
+pub struct ApiVersionsResponseBodyV4 {
+    error_code: KafkaError,
+    api_keys: ApiKeyRange,
+    /// The duration in milliseconds for which the request was throttled due to
+    /// a quota violation, or zero if the request did not violate any quota.
+    throttle_time_ms: i32,
+}
+
+struct ApiKeyRange {
+    api_key: i16,
+    min_version: i16,
+    max_version: i16,
+}
+
+impl Default for ApiKeyRange {
+    fn default() -> Self {
+        Self {
+            api_key: API_VERSIONS_API_KEY,
+            min_version: API_VERSIONS_MIN_VERSION,
+            max_version: API_VERSIONS_MAX_VERSION,
+        }
+    }
 }
 
 impl KafkaResponseBodyApiVersions {
-    pub fn new(api_version: i16) -> Self {
-        let error_code = if api_version >= 0 && api_version <= 4 {
-            ErrorCode::None
-        } else {
-            ErrorCode::UnsupportedVersion
-        };
-        Self { error_code }
+    pub fn error() -> Self {
+        Self::V0(ApiVersionsResponseBodyV0 {
+            error_code: KafkaError::UnsupportedVersion,
+            api_keys: Default::default(),
+        })
+    }
+    
+    pub fn new(api_version: SupportApiVersionsRequestVersion) -> Self {
+        // let error_code = if is_in_support_version(api_version) {
+        //     KafkaError::None
+        // } else {
+        //     KafkaError::UnsupportedVersion
+        // };
+        let error_code = KafkaError::None;
+        let api_keys = Default::default();
+        let throttle_time_ms = 0;
+        match api_version {
+            SupportApiVersionsRequestVersion::V0 => Self::V0(ApiVersionsResponseBodyV0 {
+                error_code,
+                api_keys,
+            }),
+            SupportApiVersionsRequestVersion::V1 => Self::V1(ApiVersionsResponseBodyV1 {
+                error_code,
+                api_keys,
+                throttle_time_ms,
+            }),
+            SupportApiVersionsRequestVersion::V2 => Self::V2(ApiVersionsResponseBodyV2 {
+                error_code,
+                api_keys,
+                throttle_time_ms,
+            }),
+            SupportApiVersionsRequestVersion::V3 => Self::V3(ApiVersionsResponseBodyV3 {
+                error_code,
+                api_keys,
+                throttle_time_ms,
+            }),
+            SupportApiVersionsRequestVersion::V4 => Self::V4(ApiVersionsResponseBodyV4 {
+                error_code,
+                api_keys,
+                throttle_time_ms,
+            }),
+        }
     }
 }
 
 impl Into<Vec<u8>> for KafkaResponseBodyApiVersions {
     #[inline]
     fn into(self) -> Vec<u8> {
+        match self {
+            KafkaResponseBodyApiVersions::V0(inner) => inner.into(),
+            KafkaResponseBodyApiVersions::V1(inner) => inner.into(),
+            KafkaResponseBodyApiVersions::V2(inner) => inner.into(),
+            KafkaResponseBodyApiVersions::V3(inner) => inner.into(),
+            KafkaResponseBodyApiVersions::V4(inner) => inner.into(),
+        }
+    }
+}
+
+impl Into<Vec<u8>> for ApiVersionsResponseBodyV0 {
+    #[inline]
+    fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
-        error_code.to_be_bytes().to_vec()
+        let api_keys = self.api_keys;
+        error_code
+            .to_be_bytes()
+            .into_iter()
+            .chain(api_keys.api_key.to_be_bytes())
+            .chain(api_keys.min_version.to_be_bytes())
+            .chain(api_keys.max_version.to_be_bytes())
+            .collect()
+    }
+}
+
+impl Into<Vec<u8>> for ApiVersionsResponseBodyV1 {
+    #[inline]
+    fn into(self) -> Vec<u8> {
+        let error_code: i16 = self.error_code.into();
+        let api_keys = self.api_keys;
+        let throttle_time_ms = self.throttle_time_ms;
+        error_code
+            .to_be_bytes()
+            .into_iter()
+            .chain(api_keys.api_key.to_be_bytes())
+            .chain(api_keys.min_version.to_be_bytes())
+            .chain(api_keys.max_version.to_be_bytes())
+            .chain(throttle_time_ms.to_be_bytes())
+            .collect()
+    }
+}
+
+impl Into<Vec<u8>> for ApiVersionsResponseBodyV2 {
+    #[inline]
+    fn into(self) -> Vec<u8> {
+        let error_code: i16 = self.error_code.into();
+        let api_keys = self.api_keys;
+        let throttle_time_ms = self.throttle_time_ms;
+        error_code
+            .to_be_bytes()
+            .into_iter()
+            .chain(api_keys.api_key.to_be_bytes())
+            .chain(api_keys.min_version.to_be_bytes())
+            .chain(api_keys.max_version.to_be_bytes())
+            .chain(throttle_time_ms.to_be_bytes())
+            .collect()
+    }
+}
+
+impl Into<Vec<u8>> for ApiVersionsResponseBodyV3 {
+    #[inline]
+    fn into(self) -> Vec<u8> {
+        let error_code: i16 = self.error_code.into();
+        let api_keys = self.api_keys;
+        let throttle_time_ms = self.throttle_time_ms;
+        let empty_tagged_fields = Vec::new();
+        error_code
+            .to_be_bytes()
+            .into_iter()
+            .chain(api_keys.api_key.to_be_bytes())
+            .chain(api_keys.min_version.to_be_bytes())
+            .chain(api_keys.max_version.to_be_bytes())
+            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .chain(throttle_time_ms.to_be_bytes())
+            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .collect()
+    }
+}
+
+impl Into<Vec<u8>> for ApiVersionsResponseBodyV4 {
+    #[inline]
+    fn into(self) -> Vec<u8> {
+        let error_code: i16 = self.error_code.into();
+        let api_keys = self.api_keys;
+        let throttle_time_ms = self.throttle_time_ms;
+        let empty_tagged_fields = Vec::new();
+        error_code
+            .to_be_bytes()
+            .into_iter()
+            .chain(api_keys.api_key.to_be_bytes())
+            .chain(api_keys.min_version.to_be_bytes())
+            .chain(api_keys.max_version.to_be_bytes())
+            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .chain(throttle_time_ms.to_be_bytes())
+            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .collect()
     }
 }
