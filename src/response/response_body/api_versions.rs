@@ -1,9 +1,15 @@
 use integer_encoding::VarInt;
 
 use crate::{
-    consts::api_versions::{
-        SupportApiVersionsRequestVersion, API_VERSIONS_API_KEY, API_VERSIONS_MAX_VERSION,
-        API_VERSIONS_MIN_VERSION,
+    consts::{
+        api_versions::{
+            SupportApiVersionsRequestVersion, API_VERSIONS_API_KEY, API_VERSIONS_MAX_VERSION,
+            API_VERSIONS_MIN_VERSION,
+        },
+        describe_topic_partitions::{
+            DESCRIBE_TOPIC_MAX_VERSION, DESCRIBE_TOPIC_MIN_VERSION,
+            DESCRIBE_TOPIC_PARTITIONS_API_KEY,
+        },
     },
     response::{self, error_code::KafkaError},
 };
@@ -59,6 +65,24 @@ struct ApiKeyRange {
     max_version: i16,
 }
 
+impl ApiKeyRange {
+    fn api_version() -> Self {
+        Self {
+            api_key: API_VERSIONS_API_KEY,
+            min_version: API_VERSIONS_MIN_VERSION,
+            max_version: API_VERSIONS_MAX_VERSION,
+        }
+    }
+
+    fn describe_topic_partitions() -> Self {
+        Self {
+            api_key: DESCRIBE_TOPIC_PARTITIONS_API_KEY,
+            min_version: DESCRIBE_TOPIC_MIN_VERSION,
+            max_version: DESCRIBE_TOPIC_MAX_VERSION,
+        }
+    }
+}
+
 impl Default for ApiKeyRange {
     fn default() -> Self {
         Self {
@@ -96,7 +120,7 @@ impl KafkaResponseBodyApiVersions {
         //     KafkaError::UnsupportedVersion
         // };
         let error_code = KafkaError::None;
-        let api_keys = vec![Default::default()];
+        let mut api_keys = vec![ApiKeyRange::api_version()];
         let throttle_time_ms = 420;
         match api_version {
             SupportApiVersionsRequestVersion::V0 => Self::V0(ApiVersionsResponseBodyV0 {
@@ -118,11 +142,14 @@ impl KafkaResponseBodyApiVersions {
                 api_keys,
                 throttle_time_ms,
             }),
-            SupportApiVersionsRequestVersion::V4 => Self::V4(ApiVersionsResponseBodyV4 {
-                error_code,
-                api_keys,
-                throttle_time_ms,
-            }),
+            SupportApiVersionsRequestVersion::V4 => {
+                api_keys.push(ApiKeyRange::describe_topic_partitions());
+                Self::V4(ApiVersionsResponseBodyV4 {
+                    error_code,
+                    api_keys,
+                    throttle_time_ms,
+                })
+            }
         }
     }
 }
