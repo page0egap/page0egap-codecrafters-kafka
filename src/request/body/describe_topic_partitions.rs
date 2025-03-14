@@ -19,10 +19,7 @@ pub struct DescribeTopicPartitionsRequestBodyV0 {
 }
 
 #[allow(unused)]
-struct Cursor {
-    topic_name: String,
-    partition_index: i32,
-}
+struct Cursor {}
 
 impl DescribeTopicPartitionsRequestBody {
     pub fn try_parse_from_reader<R: std::io::Read>(
@@ -66,24 +63,15 @@ impl DescribeTopicPartitionsRequestBodyV0 {
         let response_partition_limit = reader
             .read_i32::<BigEndian>()
             .map_err(|_| build_ill_format_error_helper("response_partition_limit"))?;
-        let topic_name = try_read_compact_string(reader)
-            .map_err(|_| build_ill_format_error_helper("cursor topic name"))?;
-        let partition_index = if topic_name.is_empty() {
-            -1
-        } else {
-            reader
-                .read_i32::<BigEndian>()
-                .map_err(|_| build_ill_format_error_helper("cursor partition index"))?
-        };
+        let _ = reader
+            .read_i8()
+            .map_err(|_| build_ill_format_error_helper("cursor"))?;
         let _ = try_read_tagged_fields(reader)
             .map_err(|_| build_ill_format_error_helper("tagged fields"))?;
         Ok(Self {
             topics,
             response_partition_limit,
-            cursor: Cursor {
-                topic_name,
-                partition_index,
-            },
+            cursor: Cursor {},
         })
     }
 }
