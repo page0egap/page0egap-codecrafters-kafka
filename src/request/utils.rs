@@ -45,6 +45,10 @@ pub fn try_read_compact_string<R: Read>(
     reader: &mut R,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let length: usize = reader.read_varint()?;
+    if length == 0usize {
+        return Ok(String::new());
+    }
+    let length = length - 1usize;
     let mut buf = vec![0u8; length];
     reader.read_exact(&mut buf)?;
     let result = String::from_utf8(buf)?;
