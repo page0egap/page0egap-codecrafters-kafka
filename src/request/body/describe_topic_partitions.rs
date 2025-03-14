@@ -68,9 +68,13 @@ impl DescribeTopicPartitionsRequestBodyV0 {
             .map_err(|_| build_ill_format_error_helper("response_partition_limit"))?;
         let topic_name = try_read_compact_string(reader)
             .map_err(|_| build_ill_format_error_helper("cursor topic name"))?;
-        let partition_index = reader
-            .read_i32::<BigEndian>()
-            .map_err(|_| build_ill_format_error_helper("cursor partition index"))?;
+        let partition_index = if topic_name.is_empty() {
+            -1
+        } else {
+            reader
+                .read_i32::<BigEndian>()
+                .map_err(|_| build_ill_format_error_helper("cursor partition index"))?
+        };
         let _ = try_read_tagged_fields(reader)
             .map_err(|_| build_ill_format_error_helper("tagged fields"))?;
         Ok(Self {
