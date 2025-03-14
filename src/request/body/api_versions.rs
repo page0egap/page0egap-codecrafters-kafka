@@ -100,6 +100,7 @@ impl TryParseFromReader for ApiVersionsRequestBodyV4 {
             .map_err(|_| Cow::from("client_software_name"))?;
         let client_software_version = request::utils::try_read_compact_string(reader)
             .map_err(|_| Cow::from("client_software_version"))?;
+        dbg!(&client_software_name);
         let _ =
             request::utils::try_read_tagged_fields(reader).map_err(|_| Cow::from("_tagged_fields"))?;
         Ok(ApiVersionsRequestBodyV4 {
