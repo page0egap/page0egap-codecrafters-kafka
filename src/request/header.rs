@@ -155,9 +155,9 @@ impl TryParseFromReader for KafkaRequestHeader {
 
 fn header_version_from_request_api_key(api_key: RequestApiKey) -> KafkaRequestHeaderVersion {
     match api_key {
-        RequestApiKey::Produce | RequestApiKey::Fetch | RequestApiKey::ApiVersions => {
-            KafkaRequestHeaderVersion::V0
+        RequestApiKey::Produce | RequestApiKey::Fetch => KafkaRequestHeaderVersion::V0,
+        RequestApiKey::DescribeTopicPartitions | RequestApiKey::ApiVersions => {
+            KafkaRequestHeaderVersion::V2
         }
-        RequestApiKey::DescribeTopicPartitions => KafkaRequestHeaderVersion::V2,
     }
 }
