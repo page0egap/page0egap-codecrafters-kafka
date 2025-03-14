@@ -41,7 +41,7 @@ impl KafkaRequest {
             e
         })?;
         let body = KafkaRequestBody::try_parse_body(&header, reader).map_err(|e| {
-            dbg!("body is invalid! {e}");
+            dbg!("body is invalid! {:?}", &e);
             e
         })?;
         Ok(KafkaRequest { header, body })
