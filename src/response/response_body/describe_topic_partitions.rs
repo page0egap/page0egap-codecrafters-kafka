@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     request::body::describe_topic_partitions::{
         DescribeTopicPartitionsRequestBody, DescribeTopicPartitionsRequestBodyV0,
@@ -18,7 +20,7 @@ pub enum KafkaResponseBodyDescribeTopicPartitions {
 pub struct KafkaResponseBodyDescribeTopicPartitionsV0 {
     throttle_time_ms: i32,
     topics: Vec<Topic>,
-    next_cursor: String, // nullable field, here we use empty string
+    next_cursor: PhantomData<String>, // nullable field, here we use empty string
 }
 
 pub struct Topic {
@@ -64,7 +66,7 @@ impl KafkaResponseBodyDescribeTopicPartitionsV0 {
         Self {
             throttle_time_ms,
             topics,
-            next_cursor: String::new(),
+            next_cursor: PhantomData,
         }
     }
 }
@@ -99,7 +101,7 @@ impl Into<Vec<u8>> for KafkaResponseBodyDescribeTopicPartitionsV0 {
                 self.topics,
                 Topic::into,
             ))
-            .chain(encode_string_to_compact_string_stream(self.next_cursor))
+            .chain((-1i8).to_be_bytes())
             .chain(encode_tagged_fields_to_stream(Vec::new()))
             .collect()
     }
