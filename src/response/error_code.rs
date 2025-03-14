@@ -8,6 +8,8 @@ pub enum KafkaError {
     UnknownServerError = -1,
     #[error("None")]
     None = 0,
+    #[error("UnknownTopicOrPartition")]
+    UnknownTopicOrPartition = 3,
     #[error("UnsupportedVersion")]
     UnsupportedVersion = 35,
     #[error("InvalidRequest")]

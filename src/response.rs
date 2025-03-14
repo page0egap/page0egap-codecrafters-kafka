@@ -35,13 +35,17 @@ impl KafkaResponse {
     }
 
     fn new(request: &KafkaRequest) -> Self {
-        let header = KafkaResponseHeader::new_v0(request.correlation_id());
+        let mut header = KafkaResponseHeader::new_v0(request.correlation_id());
         let body = match request.request_body() {
             crate::request::body::KafkaRequestBody::Empty => todo!(),
             crate::request::body::KafkaRequestBody::Produce => todo!(),
             crate::request::body::KafkaRequestBody::Fetch => todo!(),
             crate::request::body::KafkaRequestBody::ApiVersions(body) => {
                 KafkaResponseBody::from_api_versions_request_body(body)
+            }
+            crate::request::body::KafkaRequestBody::DescribeTopicPartitions(body) => {
+                header = KafkaResponseHeader::new_v1(request.correlation_id());
+                KafkaResponseBody::from_describe_topic_partitions_request_body(body)
             }
         };
         Self { header, body }
@@ -70,6 +74,10 @@ impl KafkaResponse {
                 correlation_id,
             } => Self {
                 header: KafkaResponseHeader::new_v0(*correlation_id),
+                body: KafkaResponseBody::Empty,
+            },
+            RequestError::InvalidFormatWithoutCId(_error_field) => Self {
+                header: KafkaResponseHeader::new_v0(-1),
                 body: KafkaResponseBody::Empty,
             },
         }

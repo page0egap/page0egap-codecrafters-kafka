@@ -1,5 +1,3 @@
-use integer_encoding::VarInt;
-
 use crate::{
     consts::{
         api_versions::{
@@ -11,7 +9,12 @@ use crate::{
             DESCRIBE_TOPIC_PARTITIONS_API_KEY,
         },
     },
-    response::{self, error_code::KafkaError},
+    response::{
+        self,
+        error_code::KafkaError,
+        utils::{encode_tagged_fields_to_stream, encode_vec_to_kafka_compact_array_stream},
+    },
+    structs::tagged_field::TaggedField,
 };
 
 pub enum KafkaResponseBodyApiVersions {
@@ -172,23 +175,13 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV0 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_encode_length = if api_keys.len() == 0 {
-            0
-        } else {
-            api_keys.len() + 1
-        };
-        let api_key_iter = api_keys
-            .into_iter()
-            .map(|api_key| {
-                let data: Vec<u8> = api_key.into();
-                data
-            })
-            .flatten();
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_encode_length.encode_var_vec())
-            .chain(api_key_iter)
+            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
+                api_keys,
+                ApiKeyRange::into,
+            ))
             .collect()
     }
 }
@@ -198,25 +191,15 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV1 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_encode_length = if api_keys.len() == 0 {
-            0
-        } else {
-            api_keys.len() + 1
-        };
         let throttle_time_ms = self.throttle_time_ms;
 
-        let api_key_iter = api_keys
-            .into_iter()
-            .map(|api_key| {
-                let data: Vec<u8> = api_key.into();
-                data
-            })
-            .flatten();
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_encode_length.encode_var_vec())
-            .chain(api_key_iter)
+            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
+                api_keys,
+                ApiKeyRange::into,
+            ))
             .chain(throttle_time_ms.to_be_bytes())
             .collect()
     }
@@ -227,25 +210,15 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV2 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_encode_length = if api_keys.len() == 0 {
-            0
-        } else {
-            api_keys.len() + 1
-        };
         let throttle_time_ms = self.throttle_time_ms;
 
-        let api_key_iter = api_keys
-            .into_iter()
-            .map(|api_key| {
-                let data: Vec<u8> = api_key.into();
-                data
-            })
-            .flatten();
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_encode_length.encode_var_vec())
-            .chain(api_key_iter)
+            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
+                api_keys,
+                ApiKeyRange::into,
+            ))
             .chain(throttle_time_ms.to_be_bytes())
             .collect()
     }
@@ -256,29 +229,19 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV3 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_encode_length = if api_keys.len() == 0 {
-            0
-        } else {
-            api_keys.len() + 1
-        };
         let throttle_time_ms = self.throttle_time_ms;
-        let empty_tagged_fields = Vec::new();
 
-        let api_key_iter = api_keys
-            .into_iter()
-            .map(|api_key| {
-                let data: Vec<u8> = api_key.into();
-                data.into_iter()
-                    .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
-            })
-            .flatten();
+        let api_keys_with_empty_tagged_fields: Vec<_> =
+            api_keys.into_iter().map(|v| (v, Vec::new())).collect();
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_encode_length.encode_var_vec())
-            .chain(api_key_iter)
+            .chain(encode_vec_to_kafka_compact_array_stream(
+                api_keys_with_empty_tagged_fields,
+                encode_api_key_range_with_tagged_fields_to_vec,
+            ))
             .chain(throttle_time_ms.to_be_bytes())
-            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .chain(response::utils::encode_tagged_fields_to_stream(Vec::new()))
             .collect()
     }
 }
@@ -288,29 +251,27 @@ impl Into<Vec<u8>> for ApiVersionsResponseBodyV4 {
     fn into(self) -> Vec<u8> {
         let error_code: i16 = self.error_code.into();
         let api_keys = self.api_keys;
-        let api_keys_encode_length = if api_keys.len() == 0 {
-            0
-        } else {
-            api_keys.len() + 1
-        };
         let throttle_time_ms = self.throttle_time_ms;
-        let empty_tagged_fields = Vec::new();
 
-        let api_key_iter = api_keys
-            .into_iter()
-            .map(|api_key| {
-                let data: Vec<u8> = api_key.into();
-                data.into_iter()
-                    .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
-            })
-            .flatten();
+        let api_keys_with_empty_tagged_fields: Vec<_> =
+            api_keys.into_iter().map(|v| (v, Vec::new())).collect();
         error_code
             .to_be_bytes()
             .into_iter()
-            .chain(api_keys_encode_length.encode_var_vec())
-            .chain(api_key_iter)
+            .chain(encode_vec_to_kafka_compact_array_stream(
+                api_keys_with_empty_tagged_fields,
+                encode_api_key_range_with_tagged_fields_to_vec,
+            ))
             .chain(throttle_time_ms.to_be_bytes())
-            .chain(response::utils::tagged_fields_to_vec(&empty_tagged_fields))
+            .chain(response::utils::encode_tagged_fields_to_stream(Vec::new()))
             .collect()
     }
+}
+
+fn encode_api_key_range_with_tagged_fields_to_vec(
+    input: (ApiKeyRange, Vec<TaggedField>),
+) -> Vec<u8> {
+    let out: Vec<u8> = input.0.into();
+    let tagged_fields_stream = encode_tagged_fields_to_stream(input.1);
+    out.into_iter().chain(tagged_fields_stream).collect()
 }
