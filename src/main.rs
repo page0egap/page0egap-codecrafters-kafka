@@ -37,7 +37,7 @@ fn main() {
 
     let file_path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log";
     let record_batches = RecordBatch::read_batches_from_file(file_path);
-    dbg!(&record_batches);
+    dbg!(record_batches.is_ok());
     record_batches.unwrap();
 
     // Uncomment this block to pass the first stage
