@@ -48,7 +48,6 @@ pub struct RecordBatch {
 }
 
 impl RecordBatch {
-    /// 从任意实现了 Read + Seek 的 reader 中读取多个 RecordBatch
     pub fn read_batches_from<R>(reader: &mut R) -> Result<Vec<Self>, Box<dyn std::error::Error>>
     where
         R: Read + Seek,
@@ -56,42 +55,42 @@ impl RecordBatch {
         let mut batches = Vec::new();
         let mut batch_count = 0;
 
-        // 尝试读取多个RecordBatch直到遇到EOF
+        // Try to read multiple RecordBatches until EOF
         loop {
             match Self::read(reader) {
                 Ok(batch) => {
                     batch_count += 1;
-                    println!("成功读取RecordBatch #{}", batch_count);
+                    println!("Successfully read RecordBatch #{}", batch_count);
 
-                    // 使用现有的print_summary方法替代内联打印逻辑
+                    // Use existing print_summary method
                     batch.print_summary();
 
                     batches.push(batch);
                 }
                 Err(e) => {
-                    // 如果是EOF (结束)，就正常退出
+                    // If it's EOF (normal end), exit normally
                     if let Error::Io(io_error) = &e {
                         if io_error.kind() == std::io::ErrorKind::UnexpectedEof {
-                            println!("读取完毕, 共 {} 个批次", batch_count);
+                            println!("Reading complete, total {} batches", batch_count);
                             break;
                         }
                     }
 
-                    // 其他错误打印出来但继续尝试
-                    println!("解析错误: {:?}", e);
+                    // Print other errors but continue trying
+                    println!("Parsing error: {:?}", e);
 
-                    // 尝试跳过错误部分，继续读取
-                    // 为安全起见，如果无法确定位置，就退出循环
+                    // Try to skip the error portion and continue reading
+                    // For safety, exit the loop if the position cannot be determined
                     match reader.stream_position() {
                         Ok(pos) => {
-                            // 尝试前进一些字节
+                            // Try to advance some bytes
                             if let Err(_) = reader.seek(std::io::SeekFrom::Current(pos as i64)) {
-                                println!("无法继续读取，停止");
+                                println!("Cannot continue reading, stopping");
                                 break;
                             }
                         }
                         Err(_) => {
-                            println!("无法获取当前位置，停止读取");
+                            println!("Cannot get current position, stopping reading");
                             break;
                         }
                     }
@@ -102,22 +101,22 @@ impl RecordBatch {
         Ok(batches)
     }
 
-    /// 从指定路径的文件中读取多个RecordBatch
+    /// Read multiple RecordBatches from a file at the specified path
     pub fn read_batches_from_file(path: &str) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
         use std::fs::File;
         use std::io::BufReader;
 
-        println!("正在读取文件: {}", path);
+        println!("Reading file: {}", path);
 
-        // 打开文件
+        // Open file
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
 
-        // 调用通用方法从reader中读取
+        // Call the generic method to read from the reader
         Self::read_batches_from(&mut reader)
     }
 
-    /// 打印RecordBatch的摘要信息
+    /// Print summary information for RecordBatch
     pub fn print_summary(&self) {
         println!("RecordBatch:");
         println!("  base_offset: {}", self.base_offset);
@@ -134,7 +133,7 @@ impl RecordBatch {
             println!("    timestamp_delta: {}", record.timestamp_delta);
             println!("    key length: {}", record.key.len());
 
-            // 根据记录类型打印内容
+            // Print content based on record type
             match &record.value.payload {
                 record_value::ClusterMetadataValue::BrokerRegistration(_) => {
                     println!("    type: BrokerRegistration")
