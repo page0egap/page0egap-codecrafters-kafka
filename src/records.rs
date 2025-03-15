@@ -60,8 +60,8 @@ impl RecordBatch {
             match Self::read(reader) {
                 Ok(batch) => {
                     batch_count += 1;
-                    println!("Successfully read RecordBatch #{}", batch_count);
-                    batch.print_summary();
+                    // println!("Successfully read RecordBatch #{}", batch_count);
+                    // batch.print_summary();
                     batches.push(batch);
                 }
                 Err(e) => {
@@ -75,7 +75,6 @@ impl RecordBatch {
 
                                     // If we're at or very near the end (within 4 bytes), consider it done
                                     let remaining = total_size as i64 - current_pos as i64;
-                                    println!("Remaining bytes: {}", remaining);
                                     remaining <= 4
                                 }
                                 Err(_) => {
