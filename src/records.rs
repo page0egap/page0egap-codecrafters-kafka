@@ -84,12 +84,10 @@ impl RecordBatch {
                     match reader.stream_position() {
                         Ok(_pos) => {
                             // Try to advance some bytes
-                            println!("Cannot get current position, stopping reading");
+                            let remaining_bytes = reader.seek(std::io::SeekFrom::End(0))?
+                                - reader.stream_position()?;
+                            println!("Remaining bytes unread: {}", remaining_bytes);
                             break;
-                            // if let Err(_) = reader.seek(std::io::SeekFrom::Current(8)) {
-                            //     println!("Cannot continue reading, stopping");
-                            //     break;
-                            // }
                         }
                         Err(_) => {
                             println!("Cannot get current position, stopping reading");
