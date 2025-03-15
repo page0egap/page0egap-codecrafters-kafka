@@ -1,5 +1,5 @@
 use binrw::binrw;
-
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::common_structs::tagged_field::TaggedField;
 
 use super::utils::{
@@ -7,20 +7,31 @@ use super::utils::{
     write_compact_string, write_tagged_fields,
 };
 
+/// 表示不同类型的记录
+#[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, IntoPrimitive)]
+#[repr(i8)]
+pub enum RecordType {
+    BrokerRegistration = 0,
+    Topic = 2,
+    FeatureLevel = 12,
+    Partition = 3,
+    // 未来可以方便地添加更多类型...
+}
+
 #[binrw]
 #[derive(Debug, PartialEq)]
 #[brw(big)]
 pub struct ClusterMetadataRecord {
     /// 所有记录都共享的字段
-    pub frame_version: i16,
+    pub frame_version: i8,
 
     /// 临时字段，不保存在结构体；读时从文件获取，写时动态计算
     #[br(temp)]
-    #[bw(calc = compute_record_type(&payload))]
-    record_type: i16,
+    #[bw(calc = compute_record_type(&payload).into())]  // 使用 IntoPrimitive 自动转换
+    record_type: i8,
 
     /// 同样共享的字段
-    pub record_version: i16,
+    pub record_version: i8,
 
     /// 剩余有效载荷，依赖 record_type 的值解析
     #[br(args { record_type })]
@@ -90,34 +101,34 @@ impl ClusterMetadataRecord {
 
 /// 不同记录的枚举，根据 record_type 的值确定走哪个分支
 #[binrw]
-#[br(import { record_type: i16 })]
+#[br(import { record_type: i8 })]
 #[derive(Debug, PartialEq)]
 #[brw(big)]
 pub enum ClusterMetadataValue {
     /// 当 record_type == 0 => BrokerRegistration
-    #[br(pre_assert(record_type == 0))]
+    #[br(pre_assert(record_type == RecordType::BrokerRegistration.into()))]
     BrokerRegistration(BrokerRegistrationRecord),
 
     /// 当 record_type == 1 => TopicRecord
-    #[br(pre_assert(record_type == 1))]
+    #[br(pre_assert(record_type == RecordType::Topic.into()))]
     Topic(TopicRecord),
 
     /// 当 record_type == 2 => FeatureLevelRecord
-    #[br(pre_assert(record_type == 2))]
+    #[br(pre_assert(record_type == RecordType::FeatureLevel.into()))]
     FeatureLevel(FeatureLevelRecord),
 
     /// 当 record_type == 3 => PartitionRecord
-    #[br(pre_assert(record_type == 3))]
+    #[br(pre_assert(record_type == RecordType::Partition.into()))]
     Partition(PartitionRecord),
-}
+    }
 
-/// 将 match 逻辑单独提取到函数，这样就不会让 struct 注解显得臃肿
-fn compute_record_type(payload: &ClusterMetadataValue) -> i16 {
+/// 将 match 逻辑单独提取到函数
+fn compute_record_type(payload: &ClusterMetadataValue) -> RecordType {
     match payload {
-        ClusterMetadataValue::BrokerRegistration(_) => 0,
-        ClusterMetadataValue::Topic(_) => 1,
-        ClusterMetadataValue::FeatureLevel(_) => 2,
-        ClusterMetadataValue::Partition(_) => 3,
+        ClusterMetadataValue::BrokerRegistration(_) => RecordType::BrokerRegistration,
+        ClusterMetadataValue::Topic(_) => RecordType::Topic,
+        ClusterMetadataValue::FeatureLevel(_) => RecordType::FeatureLevel,
+        ClusterMetadataValue::Partition(_) => RecordType::Partition,
     }
 }
 
