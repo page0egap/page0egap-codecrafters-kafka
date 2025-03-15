@@ -2,11 +2,15 @@
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
+    sync::{Arc, OnceLock, RwLock},
     thread::{self, JoinHandle},
 };
 
 use codecrafters_kafka::{
-    records::RecordBatch, request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest}, response::{KafkaResponse, KafkaResponseHeader}
+    globals::RECORD_BATCHES,
+    records::RecordBatch,
+    request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest},
+    response::{KafkaResponse, KafkaResponseHeader},
 };
 
 fn handle_stream(mut stream: TcpStream) {
@@ -32,21 +36,28 @@ fn handle_stream(mut stream: TcpStream) {
 }
 
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
     let file_path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log";
-    let record_batches = RecordBatch::read_batches_from_file(file_path);
-    dbg!(record_batches.is_ok());
-    record_batches.unwrap();
 
-    // Uncomment this block to pass the first stage
+    match RecordBatch::read_batches_from_file(file_path) {
+        Ok(batches) => {
+            println!("Successfully read {} record", batches.len());
+            RECORD_BATCHES.get_or_init(|| Arc::new(RwLock::new(batches)));
+        }
+        Err(e) => {
+            println!("Unsuccessfully read with error: {}", e);
+            RECORD_BATCHES.get_or_init(|| Arc::new(RwLock::new(Vec::new())));
+        }
+    };
     let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
 
+    // 修改线程创建以使用全局变量
     let mut threads = Vec::new();
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
+                // 每个线程都可以访问全局记录
                 threads.push(thread::spawn(|| {
                     handle_stream(stream);
                 }));
@@ -56,7 +67,7 @@ fn main() {
             }
         }
     }
-    // clear all threads
+
     for thread in threads {
         thread.join().unwrap()
     }

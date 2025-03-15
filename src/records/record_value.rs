@@ -1,6 +1,6 @@
+use crate::common_structs::tagged_field::TaggedField;
 use binrw::binrw;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use crate::common_structs::tagged_field::TaggedField;
 
 use super::utils::{
     parse_compact_array, parse_compact_string, parse_tagged_fields, write_compact_array,
@@ -27,7 +27,7 @@ pub struct ClusterMetadataRecord {
 
     /// 临时字段，不保存在结构体；读时从文件获取，写时动态计算
     #[br(temp)]
-    #[bw(calc = compute_record_type(&payload).into())]  // 使用 IntoPrimitive 自动转换
+    #[bw(calc = compute_record_type(&payload).into())] // 使用 IntoPrimitive 自动转换
     record_type: i8,
 
     /// 同样共享的字段
@@ -120,7 +120,7 @@ pub enum ClusterMetadataValue {
     /// 当 record_type == 3 => PartitionRecord
     #[br(pre_assert(record_type == RecordType::Partition.into()))]
     Partition(PartitionRecord),
-    }
+}
 
 /// 将 match 逻辑单独提取到函数
 fn compute_record_type(payload: &ClusterMetadataValue) -> RecordType {

@@ -1,6 +1,11 @@
 use std::marker::PhantomData;
 
 use crate::{
+    globals::RECORD_BATCHES,
+    records::{
+        record_value::{ClusterMetadataValue, PartitionRecord},
+        RecordBatch,
+    },
     request::body::describe_topic_partitions::{
         DescribeTopicPartitionsRequestBody, DescribeTopicPartitionsRequestBodyV0,
     },
@@ -61,7 +66,19 @@ impl KafkaResponseBodyDescribeTopicPartitionsV0 {
         let throttle_time_ms = 0;
         let mut topics = Vec::with_capacity(request.topics.len());
         for topic in &request.topics {
-            topics.push(Topic::new_unknown(topic.clone()));
+            if let Some(record_batches) = RECORD_BATCHES.get() {
+                let record_batches = record_batches.read();
+                if let Ok(record_batches_guard) = record_batches {
+                    topics.push(Topic::query_from_record_batches(
+                        topic.clone(),
+                        &record_batches_guard,
+                    ));
+                } else {
+                    topics.push(Topic::new_unknown(topic.clone()));
+                }
+            } else {
+                topics.push(Topic::new_unknown(topic.clone()));
+            }
         }
         Self {
             throttle_time_ms,
@@ -80,6 +97,76 @@ impl Topic {
             is_internal: true,
             partitions: Vec::new(),
             authorized_operation: 0,
+        }
+    }
+
+    fn query_from_record_batches(topic: String, record_batches: &Vec<RecordBatch>) -> Self {
+        let mut is_found = false;
+        let mut partitions = Vec::new();
+        let mut topic_uuid = [0u8; 16];
+        for record_batch in record_batches {
+            let records = &record_batch.records;
+            if records.is_empty() {
+                continue;
+            }
+            let first_record = &records[0].value.payload;
+            match first_record {
+                ClusterMetadataValue::Topic(topic_record) => {
+                    if topic_record.topic_name != topic {
+                        continue;
+                    }
+                    is_found = true;
+                    topic_uuid = topic_record.uuid;
+                }
+                _ => continue,
+            }
+            for record in records[1..].iter() {
+                let record = &record.value.payload;
+                if let ClusterMetadataValue::Partition(inner) = record {
+                    if inner.topic_id != topic_uuid {
+                        continue;
+                    }
+                    let partition = Partition::from_partition_record(inner);
+                    partitions.push(partition);
+                }
+            }
+        }
+        if is_found {
+            Self {
+                error_code: KafkaError::None,
+                name: topic,
+                id: topic_uuid,
+                is_internal: true,
+                partitions,
+                authorized_operation: 0,
+            }
+        } else {
+            Self::new_unknown(topic)
+        }
+    }
+}
+
+impl Partition {
+    fn from_partition_record(partition_record: &PartitionRecord) -> Self {
+        let error_code = KafkaError::None;
+        let index = partition_record.partition_id;
+        let leader_id = partition_record.leader_id;
+        let leader_epoch = partition_record.leader_epoch;
+        let replicas = partition_record.replicas.clone();
+        let isrs = partition_record.isr.clone();
+        let eligible_leader_replicas = Vec::new();
+        let last_know_klr = Vec::new();
+        let offline_replicas = Vec::new();
+        Self {
+            error_code,
+            index,
+            leader_id: leader_id as i16,
+            leader_epoch: leader_epoch as i16,
+            replicas,
+            isrs,
+            eligible_leader_replicas,
+            last_know_klr,
+            offline_replicas,
         }
     }
 }
