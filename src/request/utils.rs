@@ -5,7 +5,7 @@ use std::error::Error;
 use std::io::{self, Read};
 use thiserror::Error;
 
-use crate::structs::tagged_field::TaggedField;
+use crate::common_structs::tagged_field::TaggedField;
 
 use super::error::ErrorField;
 

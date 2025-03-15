@@ -1,4 +1,4 @@
-use crate::structs::tagged_field::TaggedField;
+use crate::common_structs::tagged_field::TaggedField;
 
 use super::utils::encode_tagged_fields_to_stream;
 

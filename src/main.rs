@@ -6,8 +6,7 @@ use std::{
 };
 
 use codecrafters_kafka::{
-    request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest},
-    response::{KafkaResponse, KafkaResponseHeader},
+    records::RecordBatch, request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest}, response::{KafkaResponse, KafkaResponseHeader}
 };
 
 fn handle_stream(mut stream: TcpStream) {
@@ -36,8 +35,12 @@ fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
+    let file_path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log";
+    let record_batches = RecordBatch::read_batches_from_file(file_path);
+    dbg!(&record_batches);
+    record_batches.unwrap();
+
     // Uncomment this block to pass the first stage
-    //
     let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
 
     let mut threads = Vec::new();

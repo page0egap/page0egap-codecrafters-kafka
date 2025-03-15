@@ -14,7 +14,7 @@ use crate::{
         error_code::KafkaError,
         utils::{encode_tagged_fields_to_stream, encode_vec_to_kafka_compact_array_stream},
     },
-    structs::tagged_field::TaggedField,
+    common_structs::tagged_field::TaggedField,
 };
 
 pub enum KafkaResponseBodyApiVersions {

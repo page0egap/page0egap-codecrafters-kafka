@@ -1,0 +1,294 @@
+use binrw::binrw;
+
+use crate::common_structs::tagged_field::TaggedField;
+
+use super::utils::{
+    parse_compact_array, parse_compact_string, parse_tagged_fields, write_compact_array,
+    write_compact_string, write_tagged_fields,
+};
+
+#[binrw]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub struct ClusterMetadataRecord {
+    /// 所有记录都共享的字段
+    pub frame_version: i16,
+
+    /// 临时字段，不保存在结构体；读时从文件获取，写时动态计算
+    #[br(temp)]
+    #[bw(calc = compute_record_type(&payload))]
+    record_type: i16,
+
+    /// 同样共享的字段
+    pub record_version: i16,
+
+    /// 剩余有效载荷，依赖 record_type 的值解析
+    #[br(args { record_type })]
+    pub payload: ClusterMetadataValue,
+}
+
+impl ClusterMetadataRecord {
+    /// 创建一个 BrokerRegistration 类型的 ClusterMetadataRecord
+    pub fn mock_broker_registration() -> Self {
+        ClusterMetadataRecord {
+            frame_version: 10,
+            record_version: 7,
+            payload: ClusterMetadataValue::BrokerRegistration(BrokerRegistrationRecord {
+                broker_id: 123,
+                cluster_id: 456789,
+            }),
+        }
+    }
+
+    /// 创建一个 TopicRecord 类型的 ClusterMetadataRecord
+    pub fn mock_topic_record() -> Self {
+        ClusterMetadataRecord {
+            frame_version: 99,
+            record_version: 3,
+            payload: ClusterMetadataValue::Topic(TopicRecord {
+                topic_name: "example_topic".to_string(),
+                uuid: [1u8; 16],
+                tagged_fields: Vec::new(),
+            }),
+        }
+    }
+
+    /// 创建一个 FeatureLevelRecord 类型的 ClusterMetadataRecord
+    pub fn mock_feature_level_record() -> Self {
+        ClusterMetadataRecord {
+            frame_version: 100,
+            record_version: 1,
+            payload: ClusterMetadataValue::FeatureLevel(FeatureLevelRecord {
+                feature_name: "example_feature".to_string(),
+                level: 5,
+                tagged_fields: Vec::new(),
+            }),
+        }
+    }
+
+    /// 创建一个 PartitionRecord 类型的 ClusterMetadataRecord
+    pub fn mock_partition_record() -> Self {
+        ClusterMetadataRecord {
+            frame_version: 5,
+            record_version: 2,
+            payload: ClusterMetadataValue::Partition(PartitionRecord {
+                partition_id: 42,
+                topic_id: [10; 16],
+                leader_id: 1001,
+                leader_epoch: 5,
+                replicas: vec![1001, 1002, 1003],
+                isr: vec![1001, 1002],
+                rra: vec![1001, 1002, 1004],
+                ara: vec![1001, 1002, 1005],
+                partition_epoch: 2,
+                tagged_fields: Vec::new(),
+                directories: vec![[15; 16]],
+            }),
+        }
+    }
+}
+
+/// 不同记录的枚举，根据 record_type 的值确定走哪个分支
+#[binrw]
+#[br(import { record_type: i16 })]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub enum ClusterMetadataValue {
+    /// 当 record_type == 0 => BrokerRegistration
+    #[br(pre_assert(record_type == 0))]
+    BrokerRegistration(BrokerRegistrationRecord),
+
+    /// 当 record_type == 1 => TopicRecord
+    #[br(pre_assert(record_type == 1))]
+    Topic(TopicRecord),
+
+    /// 当 record_type == 2 => FeatureLevelRecord
+    #[br(pre_assert(record_type == 2))]
+    FeatureLevel(FeatureLevelRecord),
+
+    /// 当 record_type == 3 => PartitionRecord
+    #[br(pre_assert(record_type == 3))]
+    Partition(PartitionRecord),
+}
+
+/// 将 match 逻辑单独提取到函数，这样就不会让 struct 注解显得臃肿
+fn compute_record_type(payload: &ClusterMetadataValue) -> i16 {
+    match payload {
+        ClusterMetadataValue::BrokerRegistration(_) => 0,
+        ClusterMetadataValue::Topic(_) => 1,
+        ClusterMetadataValue::FeatureLevel(_) => 2,
+        ClusterMetadataValue::Partition(_) => 3,
+    }
+}
+
+#[binrw]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub struct BrokerRegistrationRecord {
+    pub broker_id: i32,
+    pub cluster_id: i64,
+    // 可扩展更多字段
+}
+
+#[binrw]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub struct TopicRecord {
+    #[br(parse_with=parse_compact_string)]
+    #[bw(write_with=write_compact_string::<String, _>)]
+    pub topic_name: String,
+    pub uuid: [u8; 16],
+    #[br(parse_with=parse_tagged_fields)]
+    #[bw(write_with=write_tagged_fields)]
+    pub tagged_fields: Vec<TaggedField>,
+}
+
+#[binrw]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub struct FeatureLevelRecord {
+    #[br(parse_with=parse_compact_string)]
+    #[bw(write_with=write_compact_string::<String, _>)]
+    pub feature_name: String,
+    pub level: i16,
+    #[br(parse_with=parse_tagged_fields)]
+    #[bw(write_with=write_tagged_fields)]
+    pub tagged_fields: Vec<TaggedField>,
+}
+
+/// Kafka 分区记录结构
+#[binrw]
+#[derive(Debug, PartialEq)]
+#[brw(big)]
+pub struct PartitionRecord {
+    /// 分区ID
+    pub partition_id: i32,
+
+    /// 主题ID
+    pub topic_id: [u8; 16],
+
+    /// 副本列表（broker ID 数组）
+    #[br(parse_with=parse_compact_array::<_, _, ()>)]
+    #[bw(write_with=write_compact_array)]
+    pub replicas: Vec<i32>,
+
+    /// ISR列表（同步的副本 broker ID 数组）
+    #[br(parse_with=parse_compact_array::<_, _, ()>)]
+    #[bw(write_with=write_compact_array)]
+    pub isr: Vec<i32>,
+
+    #[br(parse_with=parse_compact_array::<_, _, ()>)]
+    #[bw(write_with=write_compact_array)]
+    pub rra: Vec<i32>,
+
+    #[br(parse_with=parse_compact_array::<_, _, ()>)]
+    #[bw(write_with=write_compact_array)]
+    pub ara: Vec<i32>,
+
+    /// 分区所在的领导者（broker）ID
+    pub leader_id: i32,
+
+    /// 分区的选举（leader epoch）
+    pub leader_epoch: i32,
+
+    pub partition_epoch: i32,
+
+    #[br(parse_with=parse_compact_array::<_, _, ()>)]
+    #[bw(write_with=write_compact_array)]
+    pub directories: Vec<[u8; 16]>,
+
+    /// 附加标记字段
+    #[br(parse_with=parse_tagged_fields)]
+    #[bw(write_with=write_tagged_fields)]
+    pub tagged_fields: Vec<TaggedField>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use binrw::{BinRead, BinWrite};
+    use std::io::Cursor;
+
+    #[test]
+    fn test_broker_registration() {
+        let original = ClusterMetadataRecord {
+            frame_version: 10,
+            record_version: 7,
+            payload: ClusterMetadataValue::BrokerRegistration(BrokerRegistrationRecord {
+                broker_id: 123,
+                cluster_id: 456789,
+            }),
+        };
+
+        let mut data = vec![];
+        let mut cursor = Cursor::new(&mut data);
+        original.write(&mut cursor).unwrap();
+        let decoded = ClusterMetadataRecord::read(&mut Cursor::new(&data)).unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn test_topic_record() {
+        let original = ClusterMetadataRecord {
+            frame_version: 99,
+            record_version: 3,
+            payload: ClusterMetadataValue::Topic(TopicRecord {
+                topic_name: "123".to_string(),
+                uuid: [1u8; 16],
+                tagged_fields: Vec::new(),
+            }),
+        };
+
+        let mut data = vec![];
+        let mut cursor = Cursor::new(&mut data);
+        original.write(&mut cursor).unwrap();
+        let decoded = ClusterMetadataRecord::read(&mut Cursor::new(&data)).unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn test_feature_level_record() {
+        let original = ClusterMetadataRecord {
+            frame_version: 100,
+            record_version: 1,
+            payload: ClusterMetadataValue::FeatureLevel(FeatureLevelRecord {
+                feature_name: "999".to_string(),
+                level: 5,
+                tagged_fields: Vec::new(),
+            }),
+        };
+
+        let mut data = vec![];
+        let mut cursor = Cursor::new(&mut data);
+        original.write(&mut cursor).unwrap();
+        let decoded = ClusterMetadataRecord::read(&mut Cursor::new(&data)).unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn test_partition_record() {
+        let original = ClusterMetadataRecord {
+            frame_version: 5,
+            record_version: 2,
+            payload: ClusterMetadataValue::Partition(PartitionRecord {
+                partition_id: 42,
+                topic_id: [10; 16], // 示例UUID
+                leader_id: 1001,
+                leader_epoch: 5,
+                replicas: vec![1001, 1002, 1003],
+                isr: vec![1001, 1002],
+                rra: vec![1001, 1002, 1004],
+                ara: vec![1001, 1002, 1005],
+                partition_epoch: 2,
+                tagged_fields: Vec::new(),
+                directories: vec![[15; 16]],
+            }),
+        };
+
+        let mut data = vec![];
+        let mut cursor = Cursor::new(&mut data);
+        original.write(&mut cursor).unwrap();
+        let decoded = ClusterMetadataRecord::read(&mut Cursor::new(&data)).unwrap();
+        assert_eq!(decoded, original);
+    }
+}

@@ -2,6 +2,7 @@ use bytes::Bytes;
 use integer_encoding::{VarInt, VarIntReader};
 use std::io::{self, Read};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct TaggedField {
     field_tag: usize,
     data: Bytes,

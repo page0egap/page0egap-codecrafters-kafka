@@ -2,7 +2,7 @@ use std::iter;
 
 use integer_encoding::VarInt;
 
-use crate::structs::tagged_field::TaggedField;
+use crate::common_structs::tagged_field::TaggedField;
 
 pub fn encode_string_to_compact_string_stream(input: String) -> Vec<u8> {
     encode_vec_to_kafka_compact_array_stream(input.into_bytes(), |x| iter::once(x))
