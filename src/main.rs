@@ -47,7 +47,6 @@ fn main() {
         }
         Err(e) => {
             println!("Unsuccessfully read with error: {}", e);
-            RECORD_BATCHES.get_or_init(|| Arc::new(RwLock::new(Vec::new())));
         }
     };
     let listener = TcpListener::bind("127.0.0.1:9092").unwrap();

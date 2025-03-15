@@ -1,4 +1,5 @@
 use crate::{
+    common_structs::tagged_field::TaggedField,
     consts::{
         api_versions::{
             SupportApiVersionsRequestVersion, API_VERSIONS_API_KEY, API_VERSIONS_MAX_VERSION,
@@ -8,13 +9,13 @@ use crate::{
             DESCRIBE_TOPIC_MAX_VERSION, DESCRIBE_TOPIC_MIN_VERSION,
             DESCRIBE_TOPIC_PARTITIONS_API_KEY,
         },
+        fetch::{FETCH_API_KEY, FETCH_MAX_VERSION, FETCH_MIN_VERSION},
     },
     response::{
         self,
         error_code::KafkaError,
         utils::{encode_tagged_fields_to_stream, encode_vec_to_kafka_compact_array_stream},
     },
-    common_structs::tagged_field::TaggedField,
 };
 
 pub enum KafkaResponseBodyApiVersions {
@@ -84,6 +85,14 @@ impl ApiKeyRange {
             max_version: DESCRIBE_TOPIC_MAX_VERSION,
         }
     }
+
+    fn fetch() -> Self {
+        Self {
+            api_key: FETCH_API_KEY,
+            min_version: FETCH_MIN_VERSION,
+            max_version: FETCH_MAX_VERSION,
+        }
+    }
 }
 
 impl Default for ApiKeyRange {
@@ -147,6 +156,7 @@ impl KafkaResponseBodyApiVersions {
             }),
             SupportApiVersionsRequestVersion::V4 => {
                 api_keys.push(ApiKeyRange::describe_topic_partitions());
+                api_keys.push(ApiKeyRange::fetch());
                 Self::V4(ApiVersionsResponseBodyV4 {
                     error_code,
                     api_keys,
