@@ -82,9 +82,9 @@ impl RecordBatch {
                     // Try to skip the error portion and continue reading
                     // For safety, exit the loop if the position cannot be determined
                     match reader.stream_position() {
-                        Ok(pos) => {
+                        Ok(_pos) => {
                             // Try to advance some bytes
-                            if let Err(_) = reader.seek(std::io::SeekFrom::Current(pos as i64)) {
+                            if let Err(_) = reader.seek(std::io::SeekFrom::Current(8)) {
                                 println!("Cannot continue reading, stopping");
                                 break;
                             }
