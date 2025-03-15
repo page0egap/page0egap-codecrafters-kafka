@@ -61,39 +61,49 @@ impl RecordBatch {
                 Ok(batch) => {
                     batch_count += 1;
                     println!("Successfully read RecordBatch #{}", batch_count);
-
-                    // Use existing print_summary method
                     batch.print_summary();
-
                     batches.push(batch);
                 }
                 Err(e) => {
-                    // If it's EOF (normal end), exit normally
-                    if let Error::Io(io_error) = &e {
-                        if io_error.kind() == std::io::ErrorKind::UnexpectedEof {
-                            println!("Reading complete, total {} batches", batch_count);
-                            break;
-                        }
-                    }
+                    // Check if we've reached the end of the stream
+                    let reached_end = match reader.stream_position() {
+                        Ok(current_pos) => {
+                            match reader.seek(std::io::SeekFrom::End(0)) {
+                                Ok(total_size) => {
+                                    // Seek back to where we were
+                                    let _ = reader.seek(std::io::SeekFrom::Start(current_pos));
 
-                    // Print other errors but continue trying
-                    println!("Parsing error: {:?}", e);
-
-                    // Try to skip the error portion and continue reading
-                    // For safety, exit the loop if the position cannot be determined
-                    match reader.stream_position() {
-                        Ok(_pos) => {
-                            // Try to advance some bytes
-                            let remaining_bytes = reader.seek(std::io::SeekFrom::End(0))?
-                                - reader.stream_position()?;
-                            println!("Remaining bytes unread: {}", remaining_bytes);
-                            break;
+                                    // If we're at or very near the end (within 4 bytes), consider it done
+                                    let remaining = total_size as i64 - current_pos as i64;
+                                    println!("Remaining bytes: {}", remaining);
+                                    remaining <= 4
+                                }
+                                Err(_) => {
+                                    println!("Cannot determine total stream size");
+                                    false
+                                }
+                            }
                         }
                         Err(_) => {
-                            println!("Cannot get current position, stopping reading");
-                            break;
+                            println!("Cannot determine current stream position");
+                            false
                         }
+                    };
+
+                    // If we've reached the end or if it's EOF error, exit normally
+                    if reached_end
+                        || matches!(e, Error::Io(ref io_err) if io_err.kind() == std::io::ErrorKind::UnexpectedEof)
+                    {
+                        println!("Reading complete, total {} batches", batch_count);
+                        break;
                     }
+
+                    // Otherwise it's a genuine error
+                    println!("Parsing error: {:?}", e);
+
+                    // We might try to skip ahead a bit to recover, but for simplicity let's just break
+                    println!("Stopping due to parse error");
+                    break;
                 }
             }
         }
