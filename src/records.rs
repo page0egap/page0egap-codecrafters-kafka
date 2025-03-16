@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use binrw::{
-    binrw,
+    binread,
     io::{Read, Seek, Write},
     BinRead, BinResult, BinWrite, Endian, Error,
 };
@@ -16,20 +16,21 @@ pub mod record_header;
 pub mod record_value;
 mod utils;
 
-#[binrw]
+#[binread]
 #[derive(Debug, PartialEq)]
 #[brw(big)] // 指定使用大端序，与 Kafka 协议字节序保持一致
 pub struct RecordBatch {
     pub base_offset: i64,            // int64
-    pub batch_length: i32,           // int32
+    #[br(temp)]
+    __batch_length: i32,           // int32
     pub partition_leader_epoch: i32, // int32
 
     #[br(temp)]
     #[br(assert(__magic == 0x02i8))]
-    #[bw(calc = 0x02i8)]
     __magic: i8,
 
-    pub crc: u32,           
+    #[br(temp)]
+    __crc: u32,
     pub attributes: i16,        // int16 (bit flags)
     pub last_offset_delta: i32, // int32
     pub base_timestamp: i64,    // int64
@@ -39,12 +40,65 @@ pub struct RecordBatch {
     pub base_sequence: i32,     // int32
 
     #[br(temp)]
-    #[bw(calc = records.len() as i32)]
     __records_length: i32,
 
     // 读取时，会用 __records_length 来决定要解析多少条 Record
     #[br(count = __records_length)]
     pub records: Vec<Record>,
+}
+
+impl BinWrite for RecordBatch {
+    type Args<'a> = ();
+
+    fn write_options<'a, W: Write + Seek>(
+        &self,
+        writer: &mut W,
+        endian: Endian,
+        _args: Self::Args<'a>,
+    ) -> BinResult<()> {
+        // crc 之后的字段，先写入一个临时缓冲，用于计算 crc
+        let mut batch_after_crc = Vec::new();
+        let mut batch_after_crc_cursor = Cursor::new(&mut batch_after_crc);
+        // crc 之后的字段，写入 batch_after_crc_cursor，用于计算 crc
+        self.attributes
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.last_offset_delta
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.base_timestamp
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.max_timestamp
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.producer_id
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.producer_epoch
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        self.base_sequence
+            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        // 计算 records 长度
+        (self.records.len() as i32).write_options(&mut batch_after_crc_cursor, endian, ())?;
+        // 写 records
+        for record in &self.records {
+            record.write_options(&mut batch_after_crc_cursor, endian, ())?;
+        }
+        // 计算 crc, The CRC32-C (Castagnoli) polynomial is used for the computation.
+        // 使用crc库计算crc
+        let crc = crc::Crc::<u32>::new(&crc::CRC_32_CKSUM)
+            .checksum(&batch_after_crc)
+            .to_be_bytes();
+        // 写入 开头字段
+        self.base_offset.write_options(writer, endian, ())?;
+        // 计算 batch_length, 为batch_length之后字段的大小
+        let batch_length = batch_after_crc.len() as i32 + 9; // 9 是除了 batch_length 之外的字段大小
+        batch_length.write_options(writer, endian, ())?;
+        self.partition_leader_epoch
+            .write_options(writer, endian, ())?;
+        (0x02i8).write_options(writer, endian, ())?; // 写入 magic
+                                                     // 写入 crc
+        writer.write_all(&crc)?;
+        // 写入 crc 之后的字段
+        writer.write_all(&batch_after_crc)?;
+        Ok(())
+    }
 }
 
 impl RecordBatch {
@@ -60,7 +114,10 @@ impl RecordBatch {
             match Self::read(reader) {
                 Ok(batch) => {
                     batch_count += 1;
-                    println!("Successfully read RecordBatch #{} with crc {:08X}", batch_count, batch.crc);
+                    println!(
+                        "Successfully read RecordBatch #{}",
+                        batch_count
+                    );
                     // batch.print_summary();
                     batches.push(batch);
                 }
@@ -129,9 +186,7 @@ impl RecordBatch {
     pub fn print_summary(&self) {
         println!("RecordBatch:");
         println!("  base_offset: {}", self.base_offset);
-        println!("  batch_length: {}", self.batch_length);
         println!("  partition_leader_epoch: {}", self.partition_leader_epoch);
-        println!("  crc: {:08X}", self.crc);
         println!("  attributes: {:04X}", self.attributes);
         println!("  last_offset_delta: {}", self.last_offset_delta);
         println!("  records count: {}", self.records.len());
@@ -281,9 +336,7 @@ mod tests {
     fn test_record_batch_roundtrip() {
         let original_batch = RecordBatch {
             base_offset: 1000,
-            batch_length: 400,
             partition_leader_epoch: 0,
-            crc: 0xABCD1234,
             attributes: 0b0101_0010,
             last_offset_delta: 10,
             base_timestamp: 1690000000,
@@ -325,7 +378,9 @@ mod tests {
 
         // 序列化: 将 original_batch 写入 buffer
         let mut buffer = vec![];
-        original_batch.write(&mut Cursor::new(&mut buffer)).unwrap();
+        original_batch
+            .write_options(&mut Cursor::new(&mut buffer), Endian::Big, ())
+            .unwrap();
 
         // 反序列化: 读取 buffer 还原为 RecordBatch
         let decoded_batch: RecordBatch = BinRead::read(&mut Cursor::new(&buffer)).unwrap();

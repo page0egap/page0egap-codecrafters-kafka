@@ -222,7 +222,7 @@ impl Partition {
 
     fn known_topic_whole_records(record_batch: &RecordBatch) -> Self {
         let mut records = Vec::new();
-        record_batch.write(&mut Cursor::new(&mut records)).unwrap();
+        record_batch.write_be(&mut Cursor::new(&mut records)).unwrap();
         Self {
             partition_index: 0,
             error_code: KafkaError::None,
