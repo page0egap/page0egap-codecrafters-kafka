@@ -136,10 +136,14 @@ impl Topic {
                         .into_iter()
                         .skip(1)
                         .filter(|record| {
-                            matches!(
-                                record.value.payload,
-                                crate::records::record_value::ClusterMetadataValue::Partition(_)
-                            )
+                            if let crate::records::record_value::ClusterMetadataValue::Partition(
+                                partition_record,
+                            ) = &record.value.payload
+                            {
+                                partition_record.topic_id == topic.topic_id
+                            } else {
+                                false
+                            }
                         })
                         .enumerate()
                         .map(|(index, mut record)| {
