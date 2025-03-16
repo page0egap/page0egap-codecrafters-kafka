@@ -105,19 +105,15 @@ impl ClusterMetadataRecord {
 #[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub enum ClusterMetadataValue {
-    /// 当 record_type == 0 => BrokerRegistration
     #[br(pre_assert(record_type == RecordType::BrokerRegistration.into()))]
     BrokerRegistration(BrokerRegistrationRecord),
 
-    /// 当 record_type == 1 => TopicRecord
     #[br(pre_assert(record_type == RecordType::Topic.into()))]
     Topic(TopicRecord),
 
-    /// 当 record_type == 2 => FeatureLevelRecord
     #[br(pre_assert(record_type == RecordType::FeatureLevel.into()))]
     FeatureLevel(FeatureLevelRecord),
 
-    /// 当 record_type == 3 => PartitionRecord
     #[br(pre_assert(record_type == RecordType::Partition.into()))]
     Partition(PartitionRecord),
 }
@@ -216,6 +212,8 @@ pub struct PartitionRecord {
 
 #[cfg(test)]
 mod tests {
+    use crate::records::record_value;
+
     use super::*;
     use binrw::{BinRead, BinWrite};
     use std::io::Cursor;
@@ -306,8 +304,11 @@ mod tests {
     #[test]
     fn test_real_data() {
         let real_raw = [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33];
-        let cluster_metadata_record =
-            ClusterMetadataRecord::read(&mut Cursor::new(&real_raw)).unwrap();
+        let cluster_metadata_record = ClusterMetadataValue::read_be_args(
+            &mut Cursor::new(&real_raw),
+            record_value::ClusterMetadataValueBinReadArgs { record_type: 3 },
+        )
+        .unwrap();
         // test时候打印一下
         println!("{:?}", cluster_metadata_record);
     }

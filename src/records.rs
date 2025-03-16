@@ -204,15 +204,19 @@ impl RecordBatch {
                 record_value::ClusterMetadataValue::FeatureLevel(f) => {
                     println!("    type: FeatureLevel");
                     println!("    feature_level: {:?}", f);
-                    // Print f as BinWrite
+                    // Print value as BinWrite
                     let mut f_cursor = Cursor::new(Vec::new());
-                    f.write_options(&mut f_cursor, Endian::Big, ()).unwrap();
-                    println!("    feature_level as BinWrite: {:?}", f_cursor.get_ref());
+                    record.value.write_options(&mut f_cursor, Endian::Big, ()).unwrap();
+                    println!("    value as BinWrite: {:?}", f_cursor.get_ref());
                 }
                 record_value::ClusterMetadataValue::Partition(p) => {
                     println!("    type: Partition");
                     println!("    partition_id: {}", p.partition_id);
                     println!("    topic_id: {:?}", p.topic_id);
+                    // Print value as BinWrite
+                    let mut f_cursor = Cursor::new(Vec::new());
+                    record.value.write_options(&mut f_cursor, Endian::Big, ()).unwrap();
+                    println!("    value as BinWrite: {:?}", f_cursor.get_ref());
                 }
             }
 
