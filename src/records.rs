@@ -117,7 +117,7 @@ impl RecordBatch {
                         "Successfully read RecordBatch #{} with CRC: {:08X}",
                         batch_count, batch.crc
                     );
-                    // batch.print_summary();
+                    batch.print_summary();
                     batches.push(batch);
                 }
                 Err(e) => {
