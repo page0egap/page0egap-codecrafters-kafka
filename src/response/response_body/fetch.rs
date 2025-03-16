@@ -139,7 +139,7 @@ impl Topic {
                                 partition_record,
                             ) = &record.value.payload
                             {
-                                partition_record.topic_id == topic.topic_id
+                                false
                             } else if let crate::records::record_value::ClusterMetadataValue::Topic(
                                 _,) = &record.value.payload {
                                     true
