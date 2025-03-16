@@ -3,6 +3,7 @@ use crate::request::{self, error::RequestError, KafkaRequestHeader};
 use crate::traits::KafkaDeseriarize;
 use std::io::Read;
 
+#[derive(Debug)]
 pub enum ApiVersionsRequestBody {
     V0,
     V1,
@@ -59,6 +60,7 @@ impl KafkaDeseriarize for ApiVersionsRequestBody {
     }
 }
 
+#[derive(Debug)]
 pub struct ApiVersionsRequestBodyV3 {
     #[allow(unused)]
     client_software_name: String,
@@ -66,6 +68,7 @@ pub struct ApiVersionsRequestBodyV3 {
     client_software_version: String,
 }
 
+#[derive(Debug)]
 pub struct ApiVersionsRequestBodyV4 {
     #[allow(unused)]
     client_software_name: String,

@@ -12,6 +12,7 @@ use crate::{
     traits::KafkaDeseriarize,
 };
 
+#[derive(Debug)]
 pub enum FetchRequestBody {
     V16(FetchRequestBodyV16),
 }
@@ -48,6 +49,8 @@ impl KafkaDeseriarize for FetchRequestBody {
     }
 }
 
+#[allow(unused)]
+#[derive(Debug)]
 pub struct FetchRequestBodyV16 {
     ax_wait_ms: i32,
     min_bytes: i32,
@@ -125,6 +128,8 @@ impl KafkaDeseriarize for FetchRequestBodyV16 {
     }
 }
 
+#[allow(unused)]
+#[derive(Debug)]
 pub struct Topic {
     topic_id: [u8; 16],
     partitions: Vec<Partition>,
@@ -162,6 +167,8 @@ impl KafkaDeseriarize for Topic {
     }
 }
 
+#[allow(unused)]
+#[derive(Debug)]
 pub struct Partition {
     index: i32,
     current_leader_epoch: i32,
@@ -214,6 +221,8 @@ impl KafkaDeseriarize for Partition {
     }
 }
 
+#[allow(unused)]
+#[derive(Debug)]
 pub struct ForgettenTopic {
     topic_id: [u8; 16],
     partitions: Vec<i32>,

@@ -19,7 +19,7 @@ fn handle_stream(mut stream: TcpStream) {
     loop {
         let request = KafkaRequest::try_from_reader(&mut stream);
         let request = match request {
-            Ok(r) => r,
+            Ok(r) => dbg!(r),
             Err(_e) => {
                 dbg!("stream is eof");
                 break;

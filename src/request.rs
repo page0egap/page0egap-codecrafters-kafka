@@ -17,6 +17,7 @@ mod utils;
 pub struct UnParsedBody;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct KafkaRequest {
     header: KafkaRequestHeader,
     body: KafkaRequestBody,
@@ -32,10 +33,19 @@ impl KafkaRequest {
         reader.read_exact(&mut buf)?;
 
         let mut reader = Cursor::new(buf);
-        Ok(Self::parse_header_and_body(&mut reader))
+        Ok(Self::try_parse_from_reader(&mut reader, ()))
     }
+}
 
-    fn parse_header_and_body<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
+impl KafkaDeseriarize for KafkaRequest {
+    type Error = RequestError;
+
+    type DependentData<'a> = ();
+
+    fn try_parse_from_reader<R: Read>(
+        reader: &mut R,
+        _: Self::DependentData<'_>,
+    ) -> Result<Self, Self::Error> {
         let header = KafkaRequestHeader::try_parse_from_reader(reader, ()).map_err(|e| {
             dbg!("header is invalid! {e}");
             e

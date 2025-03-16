@@ -11,6 +11,7 @@ use super::{
 };
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum KafkaRequestHeader {
     V0(KafkaRequestHeaderV0),
     V1(KafkaRequestHeaderV1),
@@ -23,12 +24,14 @@ pub enum KafkaRequestHeaderVersion {
     V2,
 }
 
+#[derive(Debug)]
 pub struct KafkaRequestHeaderV0 {
     pub request_api_key: RequestApiKey,
     pub request_api_version: i16,
     pub correlation_id: i32,
 }
 
+#[derive(Debug)]
 pub struct KafkaRequestHeaderV1 {
     pub request_api_key: RequestApiKey,
     pub request_api_version: i16,
@@ -36,6 +39,7 @@ pub struct KafkaRequestHeaderV1 {
     pub client_id: String,
 }
 
+#[derive(Debug)]
 pub struct KafkaRequestHeaderV2 {
     pub request_api_key: RequestApiKey,
     pub request_api_version: i16,

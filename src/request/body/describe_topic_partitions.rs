@@ -8,11 +8,13 @@ use crate::{
 };
 use byteorder::{BigEndian, ReadBytesExt};
 
+#[derive(Debug)]
 pub enum DescribeTopicPartitionsRequestBody {
     V0(DescribeTopicPartitionsRequestBodyV0),
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct DescribeTopicPartitionsRequestBodyV0 {
     pub topics: Vec<String>,
     pub response_partition_limit: i32,
@@ -20,6 +22,7 @@ pub struct DescribeTopicPartitionsRequestBodyV0 {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 struct Cursor {}
 
 impl KafkaDeseriarize for DescribeTopicPartitionsRequestBody {

@@ -13,6 +13,7 @@ pub mod describe_topic_partitions;
 pub mod fetch;
 
 #[allow(unused)]
+#[derive(Debug)]
 pub enum KafkaRequestBody {
     Empty,
     Produce,
