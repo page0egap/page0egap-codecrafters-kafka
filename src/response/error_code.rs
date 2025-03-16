@@ -14,4 +14,6 @@ pub enum KafkaError {
     UnsupportedVersion = 35,
     #[error("InvalidRequest")]
     InvalidRequest = 42,
+    #[error("UnknownTopicId")]
+    UnknownTopicId = 100,
 }

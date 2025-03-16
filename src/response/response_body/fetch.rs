@@ -1,5 +1,10 @@
 use crate::{
-    request::body::fetch::{FetchRequestBody, FetchRequestBodyV16},
+    globals::RECORD_BATCHES,
+    records::RecordBatch,
+    request::{
+        self,
+        body::fetch::{FetchRequestBody, FetchRequestBodyV16},
+    },
     response::{
         error_code::KafkaError,
         utils::{
@@ -50,7 +55,23 @@ impl FetchResponseBodyV16 {
         if request.topics.is_empty() {
             return Self::empty();
         } else {
-            todo!("FetchResponseBodyV16::new")
+            let throttle_time_ms = 0;
+            let error_code = KafkaError::None;
+            let session_id = request.session_id;
+            let mut topics = Vec::new();
+            if let Some(records) = RECORD_BATCHES.get() {
+                if let Ok(records_guard) = records.read() {
+                    for topic in &request.topics {
+                        topics.push(Topic::new(topic, &records_guard));
+                    }
+                }
+            }
+            Self {
+                throttle_time_ms,
+                error_code,
+                session_id,
+                responses: topics,
+            }
         }
     }
 
@@ -91,6 +112,38 @@ pub struct Topic {
     partitions: Vec<Partition>,
 }
 
+impl Topic {
+    pub fn new(topic: &request::body::fetch::Topic, record_batches: &[RecordBatch]) -> Self {
+        let mut is_found = false;
+        for record_batch in record_batches {
+            record_batch
+                .records
+                .iter()
+                .for_each(|record| match &record.value.payload {
+                    crate::records::record_value::ClusterMetadataValue::Partition(
+                        partition_record,
+                    ) => {
+                        if topic.topic_id == partition_record.topic_id {
+                            is_found = true;
+                        }
+                    }
+                    _ => (),
+                });
+        }
+        if is_found {
+            todo!("Implement Topic::new")
+        }
+        Self::no_found(topic.topic_id.clone())
+    }
+
+    fn no_found(topic_id: [u8; 16]) -> Self {
+        Self {
+            topic_id,
+            partitions: vec![Partition::unknown_topic_partition()],
+        }
+    }
+}
+
 impl KafkaSeriarize for Topic {
     type Error = std::io::Error;
     type DependentData<'a> = ();
@@ -118,6 +171,21 @@ pub struct Partition {
     aborted_transactions: Vec<AbortedTransaction>,
     preferred_read_replica: i32,
     records: Vec<u8>,
+}
+
+impl Partition {
+    fn unknown_topic_partition() -> Self {
+        Self {
+            partition_index: 0,
+            error_code: KafkaError::UnknownTopicId,
+            high_watermark: 0,
+            last_stable_offset: 0,
+            log_start_offset: 0,
+            aborted_transactions: Vec::new(),
+            preferred_read_replica: -1,
+            records: Vec::new(),
+        }
+    }
 }
 
 impl KafkaSeriarize for Partition {

@@ -56,7 +56,7 @@ pub struct FetchRequestBodyV16 {
     min_bytes: i32,
     max_bytes: i32,
     isolation_level: i8,
-    session_id: i32,
+    pub session_id: i32,
     session_epoch: i32,
     pub topics: Vec<Topic>,
     forgotten_topics: Vec<ForgettenTopic>,
@@ -131,8 +131,8 @@ impl KafkaDeseriarize for FetchRequestBodyV16 {
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Topic {
-    topic_id: [u8; 16],
-    partitions: Vec<Partition>,
+    pub topic_id: [u8; 16],
+    pub partitions: Vec<Partition>,
 }
 
 impl KafkaDeseriarize for Topic {
