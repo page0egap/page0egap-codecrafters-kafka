@@ -43,7 +43,7 @@ impl KafkaResponseBody {
 
 // Fetch
 impl KafkaResponseBody {
-    pub fn from_fetch_request_body(body: FetchRequestBody) -> Self {
+    pub fn from_fetch_request_body(body: &FetchRequestBody) -> Self {
         Self::Fetch(KafkaResponseBodyFetch::new(body))
     }
 }

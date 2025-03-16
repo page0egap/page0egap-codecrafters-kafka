@@ -44,7 +44,6 @@ impl KafkaResponse {
         let body = match request.request_body() {
             KafkaRequestBody::Empty => todo!(),
             KafkaRequestBody::Produce => todo!(),
-            KafkaRequestBody::Fetch => todo!(),
             KafkaRequestBody::ApiVersions(body) => {
                 KafkaResponseBody::from_api_versions_request_body(body)
             }

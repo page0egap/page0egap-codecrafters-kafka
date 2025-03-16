@@ -16,7 +16,7 @@ pub enum KafkaResponseBodyFetch {
 }
 
 impl KafkaResponseBodyFetch {
-    pub fn new(request: FetchRequestBody) -> Self {
+    pub fn new(request: &FetchRequestBody) -> Self {
         match request {
             FetchRequestBody::V16(request) => Self::V16(FetchResponseBodyV16::new(request)),
         }
@@ -46,7 +46,7 @@ pub struct FetchResponseBodyV16 {
 }
 
 impl FetchResponseBodyV16 {
-    fn new(request: FetchRequestBodyV16) -> Self {
+    fn new(request: &FetchRequestBodyV16) -> Self {
         if request.topics.is_empty() {
             return Self::empty();
         } else {
