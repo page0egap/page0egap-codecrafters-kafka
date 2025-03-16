@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use crate::{
     globals::RECORD_BATCHES,
     records::RecordBatch,
@@ -14,6 +16,7 @@ use crate::{
     },
     traits::KafkaSeriarize,
 };
+use binrw::BinWrite;
 use byteorder::{BigEndian, WriteBytesExt};
 
 pub enum KafkaResponseBodyFetch {
@@ -117,31 +120,32 @@ impl Topic {
         let mut is_found = false;
         let mut partitions = Vec::new();
         for record_batch in record_batches {
-            record_batch
-                .records
-                .iter()
-                .for_each(|record| match &record.value.payload {
-                    crate::records::record_value::ClusterMetadataValue::Topic(topic_record) => {
-                        if topic.topic_id == topic_record.uuid {
-                            is_found = true;
-                        }
-                    }
-                    crate::records::record_value::ClusterMetadataValue::Partition(
-                        partition_record,
-                    ) => {
-                        if topic.topic_id == partition_record.topic_id {
-                            is_found = true;
-                            partitions.push(Partition::unknown_topic_partition());
-                        }
-                    }
-                    _ => (),
-                });
+            let records = &record_batch.records;
+            if records.is_empty() {
+                continue;
+            }
+            let topic_record = &records[0].value.payload;
+            if let crate::records::record_value::ClusterMetadataValue::Topic(topic_record) =
+                topic_record
+            {
+                if topic.topic_id == topic_record.uuid {
+                    is_found = true;
+                    partitions.push(Partition::known_topic_whole_records(record_batch));
+                }
+            }
         }
 
         match (is_found, partitions.is_empty()) {
             (true, true) => Self::emtpy_topic(topic.topic_id.clone()),
-            (true, false) => Self::emtpy_topic(topic.topic_id.clone()),
+            (true, false) => Self::found(topic.topic_id.clone(), partitions),
             (false, _) => Self::no_found(topic.topic_id.clone()),
+        }
+    }
+
+    fn found(topic_id: [u8; 16], partitions: Vec<Partition>) -> Self {
+        Self {
+            topic_id,
+            partitions,
         }
     }
 
@@ -213,6 +217,21 @@ impl Partition {
             aborted_transactions: Vec::new(),
             preferred_read_replica: -1,
             records: Vec::new(),
+        }
+    }
+
+    fn known_topic_whole_records(record_batch: &RecordBatch) -> Self {
+        let mut records = Vec::new();
+        record_batch.write(&mut Cursor::new(&mut records)).unwrap();
+        Self {
+            partition_index: 0,
+            error_code: KafkaError::None,
+            high_watermark: 0,
+            last_stable_offset: 0,
+            log_start_offset: 0,
+            aborted_transactions: Vec::new(),
+            preferred_read_replica: -1,
+            records,
         }
     }
 }
