@@ -29,7 +29,7 @@ pub struct RecordBatch {
     #[bw(calc = 0x02i8)]
     __magic: i8,
 
-    pub crc: u32,               // uint32
+    pub crc: [u8; 4],           
     pub attributes: i16,        // int16 (bit flags)
     pub last_offset_delta: i32, // int32
     pub base_timestamp: i64,    // int64
@@ -131,7 +131,7 @@ impl RecordBatch {
         println!("  base_offset: {}", self.base_offset);
         println!("  batch_length: {}", self.batch_length);
         println!("  partition_leader_epoch: {}", self.partition_leader_epoch);
-        println!("  crc: {:08X}", self.crc);
+        println!("  crc: {:08X}", u32::from_be_bytes(self.crc));
         println!("  attributes: {:04X}", self.attributes);
         println!("  last_offset_delta: {}", self.last_offset_delta);
         println!("  records count: {}", self.records.len());
@@ -283,7 +283,7 @@ mod tests {
             base_offset: 1000,
             batch_length: 400,
             partition_leader_epoch: 0,
-            crc: 0xABCD1234,
+            crc: [0xAB, 0xCD, 0x12, 0x34],
             attributes: 0b0101_0010,
             last_offset_delta: 10,
             base_timestamp: 1690000000,
