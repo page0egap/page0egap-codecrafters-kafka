@@ -1,4 +1,9 @@
-use crate::request::error::RequestError;
+use std::io;
+
+use crate::{
+    request::{body::KafkaRequestBody, error::RequestError},
+    traits::KafkaSeriarize,
+};
 
 pub mod error_code;
 mod response_body;
@@ -37,16 +42,17 @@ impl KafkaResponse {
     fn new(request: &KafkaRequest) -> Self {
         let mut header = KafkaResponseHeader::new_v0(request.correlation_id());
         let body = match request.request_body() {
-            crate::request::body::KafkaRequestBody::Empty => todo!(),
-            crate::request::body::KafkaRequestBody::Produce => todo!(),
-            crate::request::body::KafkaRequestBody::Fetch => todo!(),
-            crate::request::body::KafkaRequestBody::ApiVersions(body) => {
+            KafkaRequestBody::Empty => todo!(),
+            KafkaRequestBody::Produce => todo!(),
+            KafkaRequestBody::Fetch => todo!(),
+            KafkaRequestBody::ApiVersions(body) => {
                 KafkaResponseBody::from_api_versions_request_body(body)
             }
-            crate::request::body::KafkaRequestBody::DescribeTopicPartitions(body) => {
+            KafkaRequestBody::DescribeTopicPartitions(body) => {
                 header = KafkaResponseHeader::new_v1(request.correlation_id());
                 KafkaResponseBody::from_describe_topic_partitions_request_body(body)
             }
+            KafkaRequestBody::Fetch(body) => KafkaResponseBody::from_fetch_request_body(body),
         };
         Self { header, body }
     }
@@ -84,27 +90,17 @@ impl KafkaResponse {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponse {
-    #[inline]
-    fn into(self) -> Vec<u8> {
-        let header_vec: Vec<u8> = self.header.into();
-        let body_vec: Vec<u8> = self.body.into();
-        let message_size = match header_vec
-            .len()
-            .checked_add(body_vec.len())
-            .map(i32::try_from)
-        {
-            Some(Ok(size)) => size,
-            _ => {
-                dbg!("whole response size is too large than i32::MAX");
-                i32::MAX
-            }
-        };
-        message_size
-            .to_be_bytes()
-            .into_iter()
-            .chain(header_vec)
-            .chain(body_vec)
-            .collect()
+impl KafkaSeriarize for KafkaResponse {
+    type Error = io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, data: ()) -> std::io::Result<()> {
+        let mut buf = Vec::new();
+        self.header.serialize(&mut buf, data)?;
+        self.body.serialize(&mut buf, data)?;
+        let message_size = buf.len() as i32;
+        writer.write_all(&message_size.to_be_bytes())?;
+        writer.write_all(&buf)?;
+        Ok(())
     }
 }

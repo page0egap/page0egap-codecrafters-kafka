@@ -1,9 +1,8 @@
 use byteorder::ReadBytesExt;
-use std::{borrow::Cow, io::Cursor};
 
 use byteorder::BigEndian;
 
-use crate::traits::TryParseFromReader;
+use crate::traits::KafkaDeseriarize;
 
 use super::{
     api_key::RequestApiKey,
@@ -45,14 +44,6 @@ pub struct KafkaRequestHeaderV2 {
 }
 
 impl KafkaRequestHeader {
-    #[allow(unused)]
-    fn try_from_slice(slice: &[u8]) -> Result<Self, RequestError> {
-        let mut cursor = Cursor::new(slice);
-        Self::try_parse_from_reader(&mut cursor)
-    }
-}
-
-impl KafkaRequestHeader {
     pub fn request_api_key(&self) -> &RequestApiKey {
         match self {
             KafkaRequestHeader::V0(inner) => &inner.request_api_key,
@@ -86,22 +77,26 @@ impl KafkaRequestHeader {
     }
 }
 
-impl TryParseFromReader for KafkaRequestHeader {
+impl KafkaDeseriarize for KafkaRequestHeader {
     type Error = RequestError;
+    type DependentData<'a> = ();
 
-    fn try_parse_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, Self::Error>
+    fn try_parse_from_reader<R: std::io::Read>(
+        reader: &mut R,
+        _data: (),
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
         let request_api_key = reader
             .read_i16::<BigEndian>()
-            .map_err(|_| ErrorField::from(Cow::from("request_api_key")))?;
+            .map_err(|_| ErrorField::from("request_api_key"))?;
         let request_api_version = reader
             .read_i16::<BigEndian>()
-            .map_err(|_| ErrorField::from(Cow::from("request_api_version")))?;
+            .map_err(|_| ErrorField::from("request_api_version"))?;
         let correlation_id = reader
             .read_i32::<BigEndian>()
-            .map_err(|_| ErrorField::from(Cow::from("correlation_id")))?;
+            .map_err(|_| ErrorField::from("correlation_id"))?;
         let request_api_key =
             request_api_key
                 .try_into()
@@ -119,7 +114,7 @@ impl TryParseFromReader for KafkaRequestHeader {
             KafkaRequestHeaderVersion::V1 => {
                 let client_id =
                     try_read_nullable_string(reader).map_err(|_| RequestError::InvalidFormat {
-                        field: ErrorField::from(Cow::from("client_id")),
+                        field: ErrorField::from("client_id"),
                         correlation_id,
                     })?;
                 Ok(Self::V1(KafkaRequestHeaderV1 {
@@ -132,13 +127,13 @@ impl TryParseFromReader for KafkaRequestHeader {
             KafkaRequestHeaderVersion::V2 => {
                 let client_id =
                     try_read_nullable_string(reader).map_err(|_| RequestError::InvalidFormat {
-                        field: ErrorField::from(Cow::from("client_id")),
+                        field: ErrorField::from("client_id"),
                         correlation_id,
                     })?;
 
                 let _ =
                     try_read_tagged_fields(reader).map_err(|_| RequestError::InvalidFormat {
-                        field: ErrorField::from(Cow::from("header tagged field")),
+                        field: ErrorField::from("header tagged field"),
                         correlation_id,
                     })?;
 
@@ -155,9 +150,9 @@ impl TryParseFromReader for KafkaRequestHeader {
 
 fn header_version_from_request_api_key(api_key: RequestApiKey) -> KafkaRequestHeaderVersion {
     match api_key {
-        RequestApiKey::Produce | RequestApiKey::Fetch => KafkaRequestHeaderVersion::V0,
-        RequestApiKey::DescribeTopicPartitions | RequestApiKey::ApiVersions => {
-            KafkaRequestHeaderVersion::V2
-        }
+        RequestApiKey::Produce => KafkaRequestHeaderVersion::V0,
+        RequestApiKey::DescribeTopicPartitions
+        | RequestApiKey::ApiVersions
+        | RequestApiKey::Fetch => KafkaRequestHeaderVersion::V2,
     }
 }

@@ -6,8 +6,9 @@ use std::io::{self, Read};
 use thiserror::Error;
 
 use crate::common_structs::tagged_field::TaggedField;
+use crate::traits::KafkaDeseriarize;
 
-use super::error::ErrorField;
+use super::error::{ErrorField, RequestError};
 
 #[derive(Debug, Error)]
 pub enum ReadCompactStringError<I: Error> {
@@ -15,6 +16,20 @@ pub enum ReadCompactStringError<I: Error> {
     LengthError(io::Error),
     #[error("inner {0}")]
     InnerError(#[from] I),
+}
+
+impl ReadCompactStringError<RequestError> {
+    pub fn into_request_error<F>(self, length_field: F, correlation_id: i32) -> RequestError
+    where
+        F: Into<ErrorField>,
+    {
+        match self {
+            ReadCompactStringError::LengthError(_error) => {
+                RequestError::invalid_format(length_field, correlation_id)
+            }
+            ReadCompactStringError::InnerError(inner) => inner,
+        }
+    }
 }
 
 pub fn try_read_vec_from_compact_array<R: Read, Element, FnReadOne, FnError>(
@@ -77,7 +92,7 @@ pub fn try_read_tagged_fields<R: Read>(reader: &mut R) -> Result<Vec<TaggedField
     let num: usize = reader.read_varint()?;
     let mut results = Vec::new();
     for _ in 0..num {
-        let tagged_field = TaggedField::try_from_reader(reader)?;
+        let tagged_field = TaggedField::try_parse_from_reader(reader, ())?;
         results.push(tagged_field);
     }
     Ok(results)

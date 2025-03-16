@@ -1,38 +1,54 @@
-use std::iter;
+use std::io;
 
 use integer_encoding::VarInt;
 
-use crate::common_structs::tagged_field::TaggedField;
+use crate::{common_structs::tagged_field::TaggedField, traits::KafkaSeriarize};
 
-pub fn encode_string_to_compact_string_stream(input: String) -> Vec<u8> {
-    encode_vec_to_kafka_compact_array_stream(input.into_bytes(), |x| iter::once(x))
+pub fn write_compact_string_stream(
+    writer: &mut impl std::io::Write,
+    input: impl AsRef<str>,
+) -> Result<(), io::Error> {
+    write_compact_vec_u8_stream(writer, input.as_ref().as_bytes())
 }
 
-#[inline]
-pub fn encode_tagged_fields_to_stream<VEC>(tagged_fields: VEC) -> Vec<u8>
+pub fn write_compact_vec_u8_stream(
+    writer: &mut impl std::io::Write,
+    v: impl AsRef<[u8]>,
+) -> Result<(), io::Error> {
+    let v = v.as_ref();
+    let encode_length = v.len();
+    let encode_length = if encode_length == 0 {
+        0
+    } else {
+        encode_length + 1
+    };
+    writer.write_all(&encode_length.encode_var_vec())?;
+    writer.write_all(&v)?;
+    Ok(())
+}
+
+pub fn write_kafka_tagged_fields_stream<W>(
+    writer: &mut W,
+    tagged_fields: Vec<TaggedField>,
+) -> Result<(), io::Error>
 where
-    VEC: AsRef<[TaggedField]>,
-    VEC: IntoIterator<Item = TaggedField>,
+    W: std::io::Write,
 {
-    let mut out = Vec::new();
-    // 写入 tag 数
-    out.extend_from_slice(&tagged_fields.as_ref().len().encode_var_vec());
-    // 依次写入每个 tag 的数据
+    writer.write_all(tagged_fields.len().encode_var_vec().as_slice())?;
     for tagged_field in tagged_fields {
-        let tagged_field_stream: Vec<u8> = tagged_field.into();
-        out.extend(tagged_field_stream);
+        tagged_field.serialize(writer, ())?;
     }
-    out
+    Ok(())
 }
 
-#[inline]
-pub fn encode_vec_to_kafka_compact_array_stream<T, FnTrans, FnIntoIter>(
+pub fn write_kafka_compact_array_stream<W, T, FnWrite>(
+    writer: &mut W,
     v: Vec<T>,
-    f: FnTrans,
-) -> Vec<u8>
+    mut f: FnWrite,
+) -> Result<(), io::Error>
 where
-    FnTrans: Fn(T) -> FnIntoIter,
-    FnIntoIter: IntoIterator<Item = u8>,
+    W: std::io::Write,
+    FnWrite: FnMut(&mut W, T) -> Result<(), io::Error>,
 {
     let encode_length = v.len();
     let encode_length = if encode_length == 0 {
@@ -40,23 +56,22 @@ where
     } else {
         encode_length + 1
     };
-    let v_encode_stream = v.into_iter().map(|inner| f(inner)).flatten();
-
-    encode_length
-        .encode_var_vec()
-        .into_iter()
-        .chain(v_encode_stream)
-        .collect()
+    writer.write_all(&encode_length.encode_var_vec()).unwrap();
+    for inner in v {
+        f(writer, inner)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::encode_tagged_fields_to_stream;
+    use crate::response::utils::write_kafka_tagged_fields_stream;
 
     #[test]
     fn test_emtpy_vector() {
         let vec = Vec::new();
-        let result = encode_tagged_fields_to_stream(vec);
+        let mut result = Vec::new();
+        write_kafka_tagged_fields_stream(&mut result, vec).unwrap();
         assert_eq!(result, vec![0u8])
     }
 }

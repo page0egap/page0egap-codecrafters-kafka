@@ -10,6 +10,8 @@ use std::io::Seek;
 use std::io::{Read, Write};
 
 use crate::common_structs::tagged_field::TaggedField;
+use crate::traits::KafkaDeseriarize;
+use crate::traits::KafkaSeriarize;
 
 pub fn parse_compact_array<'a, R: Read + Seek, T, Args>(
     reader: &mut R,
@@ -58,7 +60,7 @@ pub fn parse_tagged_fields<R: Read + Seek>(
     let num: usize = reader.read_varint()?;
     let mut results = Vec::new();
     for _ in 0..num {
-        let tagged_field = TaggedField::try_from_reader(reader)?;
+        let tagged_field = TaggedField::try_parse_from_reader(reader, ())?;
         results.push(tagged_field);
     }
     Ok(results)
@@ -76,8 +78,7 @@ where
     let tagged_fields = tagged_fields.as_ref();
     writer.write_all(&tagged_fields.len().encode_var_vec())?;
     for tagged_field in tagged_fields {
-        let tagged_field_stream: Vec<u8> = tagged_field.clone().into();
-        writer.write_all(&tagged_field_stream)?;
+        tagged_field.clone().serialize(writer, ())?;
     }
     Ok(())
 }

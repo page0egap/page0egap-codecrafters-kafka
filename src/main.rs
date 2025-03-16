@@ -11,6 +11,7 @@ use codecrafters_kafka::{
     records::RecordBatch,
     request::{self, body::KafkaRequestBody, error::RequestError, KafkaRequest},
     response::{KafkaResponse, KafkaResponseHeader},
+    traits::KafkaSeriarize,
 };
 
 fn handle_stream(mut stream: TcpStream) {
@@ -27,8 +28,7 @@ fn handle_stream(mut stream: TcpStream) {
         println!("recieve new request");
         // generate response
         let response = KafkaResponse::from_request(&request);
-        let response_bytes: Vec<u8> = response.into();
-        stream.write_all(&response_bytes).unwrap();
+        response.serialize(&mut stream, ()).unwrap();
         println!("response to new request");
     }
 

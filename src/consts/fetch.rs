@@ -1,11 +1,11 @@
-use num_enum::TryFromPrimitive;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 pub const FETCH_API_KEY: i16 = 1;
 pub const FETCH_MIN_VERSION: i16 = 0;
 pub const FETCH_MAX_VERSION: i16 = 16;
 
 #[repr(i16)]
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
 pub enum SupportFetchRequestVersion {
     V0 = 0,
     V1 = 1,

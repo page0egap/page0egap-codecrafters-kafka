@@ -1,5 +1,4 @@
 use crate::{
-    common_structs::tagged_field::TaggedField,
     consts::{
         api_versions::{
             SupportApiVersionsRequestVersion, API_VERSIONS_API_KEY, API_VERSIONS_MAX_VERSION,
@@ -12,10 +11,10 @@ use crate::{
         fetch::{FETCH_API_KEY, FETCH_MAX_VERSION, FETCH_MIN_VERSION},
     },
     response::{
-        self,
         error_code::KafkaError,
-        utils::{encode_tagged_fields_to_stream, encode_vec_to_kafka_compact_array_stream},
+        utils::{write_kafka_compact_array_stream, write_kafka_tagged_fields_stream},
     },
+    traits::KafkaSeriarize,
 };
 
 pub enum KafkaResponseBodyApiVersions {
@@ -95,25 +94,15 @@ impl ApiKeyRange {
     }
 }
 
-impl Default for ApiKeyRange {
-    fn default() -> Self {
-        Self {
-            api_key: API_VERSIONS_API_KEY,
-            min_version: API_VERSIONS_MIN_VERSION,
-            max_version: API_VERSIONS_MAX_VERSION,
-        }
-    }
-}
+impl KafkaSeriarize for ApiKeyRange {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
 
-impl Into<Vec<u8>> for ApiKeyRange {
-    #[inline]
-    fn into(self) -> Vec<u8> {
-        self.api_key
-            .to_be_bytes()
-            .into_iter()
-            .chain(self.min_version.to_be_bytes())
-            .chain(self.max_version.to_be_bytes())
-            .collect()
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
+        writer.write_all(&self.api_key.to_be_bytes())?;
+        writer.write_all(&self.min_version.to_be_bytes())?;
+        writer.write_all(&self.max_version.to_be_bytes())?;
+        Ok(())
     }
 }
 
@@ -126,11 +115,6 @@ impl KafkaResponseBodyApiVersions {
     }
 
     pub fn new(api_version: SupportApiVersionsRequestVersion) -> Self {
-        // let error_code = if is_in_support_version(api_version) {
-        //     KafkaError::None
-        // } else {
-        //     KafkaError::UnsupportedVersion
-        // };
         let error_code = KafkaError::None;
         let mut api_keys = vec![ApiKeyRange::api_version()];
         let throttle_time_ms = 420;
@@ -167,121 +151,99 @@ impl KafkaResponseBodyApiVersions {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseBodyApiVersions {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for KafkaResponseBodyApiVersions {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         match self {
-            KafkaResponseBodyApiVersions::V0(inner) => inner.into(),
-            KafkaResponseBodyApiVersions::V1(inner) => inner.into(),
-            KafkaResponseBodyApiVersions::V2(inner) => inner.into(),
-            KafkaResponseBodyApiVersions::V3(inner) => inner.into(),
-            KafkaResponseBodyApiVersions::V4(inner) => inner.into(),
+            KafkaResponseBodyApiVersions::V0(inner) => inner.serialize(writer, ()),
+            KafkaResponseBodyApiVersions::V1(inner) => inner.serialize(writer, ()),
+            KafkaResponseBodyApiVersions::V2(inner) => inner.serialize(writer, ()),
+            KafkaResponseBodyApiVersions::V3(inner) => inner.serialize(writer, ()),
+            KafkaResponseBodyApiVersions::V4(inner) => inner.serialize(writer, ()),
         }
     }
 }
 
-impl Into<Vec<u8>> for ApiVersionsResponseBodyV0 {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for ApiVersionsResponseBodyV0 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        let api_keys = self.api_keys;
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
-                api_keys,
-                ApiKeyRange::into,
-            ))
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.api_keys, |writer, api_key| {
+            api_key.serialize(writer, ())
+        })?;
+        Ok(())
     }
 }
 
-impl Into<Vec<u8>> for ApiVersionsResponseBodyV1 {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for ApiVersionsResponseBodyV1 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        let api_keys = self.api_keys;
         let throttle_time_ms = self.throttle_time_ms;
-
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
-                api_keys,
-                ApiKeyRange::into,
-            ))
-            .chain(throttle_time_ms.to_be_bytes())
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.api_keys, |writer, api_key| {
+            api_key.serialize(writer, ())
+        })?;
+        writer.write_all(&throttle_time_ms.to_be_bytes())?;
+        Ok(())
     }
 }
 
-impl Into<Vec<u8>> for ApiVersionsResponseBodyV2 {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for ApiVersionsResponseBodyV2 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        let api_keys = self.api_keys;
         let throttle_time_ms = self.throttle_time_ms;
-
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
-                api_keys,
-                ApiKeyRange::into,
-            ))
-            .chain(throttle_time_ms.to_be_bytes())
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.api_keys, |writer, api_key| {
+            api_key.serialize(writer, ())
+        })?;
+        writer.write_all(&throttle_time_ms.to_be_bytes())?;
+        Ok(())
     }
 }
 
-impl Into<Vec<u8>> for ApiVersionsResponseBodyV3 {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for ApiVersionsResponseBodyV3 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        let api_keys = self.api_keys;
         let throttle_time_ms = self.throttle_time_ms;
-
-        let api_keys_with_empty_tagged_fields: Vec<_> =
-            api_keys.into_iter().map(|v| (v, Vec::new())).collect();
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                api_keys_with_empty_tagged_fields,
-                encode_api_key_range_with_tagged_fields_to_vec,
-            ))
-            .chain(throttle_time_ms.to_be_bytes())
-            .chain(response::utils::encode_tagged_fields_to_stream(Vec::new()))
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.api_keys, |writer, api_key| {
+            api_key.serialize(writer, ())?;
+            write_kafka_tagged_fields_stream(writer, Vec::new())
+        })?;
+        writer.write_all(&throttle_time_ms.to_be_bytes())?;
+        write_kafka_tagged_fields_stream(writer, Vec::new())?;
+        Ok(())
     }
 }
 
-impl Into<Vec<u8>> for ApiVersionsResponseBodyV4 {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for ApiVersionsResponseBodyV4 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        let api_keys = self.api_keys;
         let throttle_time_ms = self.throttle_time_ms;
-
-        let api_keys_with_empty_tagged_fields: Vec<_> =
-            api_keys.into_iter().map(|v| (v, Vec::new())).collect();
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                api_keys_with_empty_tagged_fields,
-                encode_api_key_range_with_tagged_fields_to_vec,
-            ))
-            .chain(throttle_time_ms.to_be_bytes())
-            .chain(response::utils::encode_tagged_fields_to_stream(Vec::new()))
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.api_keys, |writer, api_key| {
+            api_key.serialize(writer, ())?;
+            write_kafka_tagged_fields_stream(writer, Vec::new())
+        })?;
+        writer.write_all(&throttle_time_ms.to_be_bytes())?;
+        write_kafka_tagged_fields_stream(writer, Vec::new())?;
+        Ok(())
     }
-}
-
-fn encode_api_key_range_with_tagged_fields_to_vec(
-    input: (ApiKeyRange, Vec<TaggedField>),
-) -> Vec<u8> {
-    let out: Vec<u8> = input.0.into();
-    let tagged_fields_stream = encode_tagged_fields_to_stream(input.1);
-    out.into_iter().chain(tagged_fields_stream).collect()
 }

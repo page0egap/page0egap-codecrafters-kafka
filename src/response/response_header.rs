@@ -1,6 +1,6 @@
-use crate::common_structs::tagged_field::TaggedField;
+use crate::{common_structs::tagged_field::TaggedField, traits::KafkaSeriarize};
 
-use super::utils::encode_tagged_fields_to_stream;
+use super::utils::write_kafka_tagged_fields_stream;
 
 pub enum KafkaResponseHeader {
     VO(KafkaResponseHeaderV0),
@@ -26,12 +26,14 @@ impl KafkaResponseHeader {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseHeader {
-    #[inline]
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for KafkaResponseHeader {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, data: ()) -> std::io::Result<()> {
         match self {
-            KafkaResponseHeader::VO(inner) => inner.into(),
-            KafkaResponseHeader::V1(inner) => inner.into(),
+            KafkaResponseHeader::VO(inner) => inner.serialize(writer, data),
+            KafkaResponseHeader::V1(inner) => inner.serialize(writer, data),
         }
     }
 }
@@ -42,9 +44,12 @@ impl KafkaResponseHeaderV0 {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseHeaderV0 {
-    fn into(self) -> Vec<u8> {
-        self.correlation_id.to_be_bytes().to_vec()
+impl KafkaSeriarize for KafkaResponseHeaderV0 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
+        writer.write_all(&self.correlation_id.to_be_bytes())
     }
 }
 
@@ -57,12 +62,12 @@ impl KafkaResponseHeaderV1 {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseHeaderV1 {
-    fn into(self) -> Vec<u8> {
-        self.correlation_id
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_tagged_fields_to_stream(self.tagged_fields))
-            .collect()
+impl KafkaSeriarize for KafkaResponseHeaderV1 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
+        writer.write_all(&self.correlation_id.to_be_bytes())?;
+        write_kafka_tagged_fields_stream(writer, self.tagged_fields)
     }
 }

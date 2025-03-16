@@ -1,9 +1,10 @@
-use std::borrow::Cow;
-
-use crate::request::{
-    error::{ErrorField, RequestError},
-    header::KafkaRequestHeader,
-    utils::{try_read_compact_string, try_read_tagged_fields, try_read_vec_from_compact_array},
+use crate::{
+    request::{
+        error::RequestError,
+        header::KafkaRequestHeader,
+        utils::{try_read_compact_string, try_read_tagged_fields, try_read_vec_from_compact_array},
+    },
+    traits::KafkaDeseriarize,
 };
 use byteorder::{BigEndian, ReadBytesExt};
 
@@ -21,29 +22,38 @@ pub struct DescribeTopicPartitionsRequestBodyV0 {
 #[allow(unused)]
 struct Cursor {}
 
-impl DescribeTopicPartitionsRequestBody {
-    pub fn try_parse_from_reader<R: std::io::Read>(
+impl KafkaDeseriarize for DescribeTopicPartitionsRequestBody {
+    type Error = RequestError;
+
+    type DependentData<'a> = &'a KafkaRequestHeader;
+
+    fn try_parse_from_reader<R: std::io::Read>(
         reader: &mut R,
-        header: &KafkaRequestHeader,
-    ) -> Result<Self, RequestError> {
+        header: Self::DependentData<'_>,
+    ) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
         Ok(Self::V0(
             DescribeTopicPartitionsRequestBodyV0::try_parse_from_reader(reader, header)?,
         ))
     }
 }
 
-impl DescribeTopicPartitionsRequestBodyV0 {
+impl KafkaDeseriarize for DescribeTopicPartitionsRequestBodyV0 {
+    type Error = RequestError;
+
+    type DependentData<'a> = &'a KafkaRequestHeader;
+
     fn try_parse_from_reader<R: std::io::Read>(
         reader: &mut R,
-        header: &KafkaRequestHeader,
-    ) -> Result<Self, RequestError>
+        header: Self::DependentData<'_>,
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        let build_ill_format_error_helper = |field: &'static str| RequestError::InvalidFormat {
-            field: ErrorField::from(Cow::from(field)),
-            correlation_id: header.correlation_id(),
-        };
+        let build_ill_format_error_helper =
+            |field: &'static str| RequestError::invalid_format(field, header.correlation_id());
 
         let topics_helper = |reader: &mut R| {
             let topic = try_read_compact_string(reader)

@@ -1,8 +1,7 @@
 use crate::consts::api_versions::SupportApiVersionsRequestVersion;
-use crate::request::error::ErrorField;
 use crate::request::{self, error::RequestError, KafkaRequestHeader};
-use crate::traits::TryParseFromReader;
-use std::{borrow::Cow, io::Read};
+use crate::traits::KafkaDeseriarize;
+use std::io::Read;
 
 pub enum ApiVersionsRequestBody {
     V0,
@@ -24,11 +23,18 @@ impl ApiVersionsRequestBody {
     }
 }
 
-impl ApiVersionsRequestBody {
-    pub fn try_from_reader<R: Read>(
+impl KafkaDeseriarize for ApiVersionsRequestBody {
+    type Error = RequestError;
+
+    type DependentData<'a> = &'a KafkaRequestHeader;
+
+    fn try_parse_from_reader<R: Read>(
         reader: &mut R,
-        header: &KafkaRequestHeader,
-    ) -> Result<Self, RequestError> {
+        header: Self::DependentData<'_>,
+    ) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
         let api_version = header.request_api_version();
         let correlation_id = header.correlation_id();
         let version: SupportApiVersionsRequestVersion =
@@ -43,20 +49,10 @@ impl ApiVersionsRequestBody {
             SupportApiVersionsRequestVersion::V1 => ApiVersionsRequestBody::V1,
             SupportApiVersionsRequestVersion::V2 => ApiVersionsRequestBody::V2,
             SupportApiVersionsRequestVersion::V3 => ApiVersionsRequestBody::V3(
-                ApiVersionsRequestBodyV3::try_parse_from_reader(reader).map_err(|field| {
-                    RequestError::InvalidFormat {
-                        field,
-                        correlation_id,
-                    }
-                })?,
+                ApiVersionsRequestBodyV3::try_parse_from_reader(reader, &header)?,
             ),
             SupportApiVersionsRequestVersion::V4 => ApiVersionsRequestBody::V4(
-                ApiVersionsRequestBodyV4::try_parse_from_reader(reader).map_err(|field| {
-                    RequestError::InvalidFormat {
-                        field,
-                        correlation_id,
-                    }
-                })?,
+                ApiVersionsRequestBodyV4::try_parse_from_reader(reader, &header)?,
             ),
         };
         Ok(body)
@@ -77,15 +73,20 @@ pub struct ApiVersionsRequestBodyV4 {
     client_software_version: String,
 }
 
-impl TryParseFromReader for ApiVersionsRequestBodyV3 {
-    type Error = ErrorField;
-    fn try_parse_from_reader<R: Read>(reader: &mut R) -> Result<Self, Self::Error> {
+impl KafkaDeseriarize for ApiVersionsRequestBodyV3 {
+    type Error = RequestError;
+    type DependentData<'a> = &'a KafkaRequestHeader;
+    fn try_parse_from_reader<R: Read>(
+        reader: &mut R,
+        data: &KafkaRequestHeader,
+    ) -> Result<Self, Self::Error> {
+        let id = data.correlation_id();
         let client_software_name = request::utils::try_read_compact_string(reader)
-            .map_err(|_| Cow::from("client_software_name"))?;
+            .map_err(|_| RequestError::invalid_format("client_software_name", id))?;
         let client_software_version = request::utils::try_read_compact_string(reader)
-            .map_err(|_| Cow::from("client_software_version"))?;
-        let _ =
-            request::utils::try_read_tagged_fields(reader).map_err(|_| Cow::from("_tagged_fields"))?;
+            .map_err(|_| RequestError::invalid_format("client_software_version", id))?;
+        let _ = request::utils::try_read_tagged_fields(reader)
+            .map_err(|_| RequestError::invalid_format("_tagged_fields", id))?;
         Ok(ApiVersionsRequestBodyV3 {
             client_software_name,
             client_software_version,
@@ -93,16 +94,20 @@ impl TryParseFromReader for ApiVersionsRequestBodyV3 {
     }
 }
 
-impl TryParseFromReader for ApiVersionsRequestBodyV4 {
-    type Error = ErrorField;
-    fn try_parse_from_reader<R: Read>(reader: &mut R) -> Result<Self, Self::Error> {
+impl KafkaDeseriarize for ApiVersionsRequestBodyV4 {
+    type Error = RequestError;
+    type DependentData<'a> = &'a KafkaRequestHeader;
+    fn try_parse_from_reader<R: Read>(
+        reader: &mut R,
+        data: &KafkaRequestHeader,
+    ) -> Result<Self, Self::Error> {
+        let id = data.correlation_id();
         let client_software_name = request::utils::try_read_compact_string(reader)
-            .map_err(|_| Cow::from("client_software_name"))?;
+            .map_err(|_| RequestError::invalid_format("client_software_name", id))?;
         let client_software_version = request::utils::try_read_compact_string(reader)
-            .map_err(|_| Cow::from("client_software_version"))?;
-        dbg!(&client_software_name);
-        let _ =
-            request::utils::try_read_tagged_fields(reader).map_err(|_| Cow::from("_tagged_fields"))?;
+            .map_err(|_| RequestError::invalid_format("client_software_version", id))?;
+        let _ = request::utils::try_read_tagged_fields(reader)
+            .map_err(|_| RequestError::invalid_format("_tagged_fields", id))?;
         Ok(ApiVersionsRequestBodyV4 {
             client_software_name,
             client_software_version,

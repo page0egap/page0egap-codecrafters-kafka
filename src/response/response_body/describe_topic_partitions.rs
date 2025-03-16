@@ -12,10 +12,11 @@ use crate::{
     response::{
         error_code::KafkaError,
         utils::{
-            encode_string_to_compact_string_stream, encode_tagged_fields_to_stream,
-            encode_vec_to_kafka_compact_array_stream,
+            write_compact_string_stream, write_kafka_compact_array_stream,
+            write_kafka_tagged_fields_stream,
         },
     },
+    traits::KafkaSeriarize,
 };
 
 pub enum KafkaResponseBodyDescribeTopicPartitions {
@@ -171,79 +172,81 @@ impl Partition {
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseBodyDescribeTopicPartitions {
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for KafkaResponseBodyDescribeTopicPartitions {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(
+        self,
+        writer: &mut W,
+        data: Self::DependentData<'_>,
+    ) -> std::io::Result<()> {
         match self {
-            KafkaResponseBodyDescribeTopicPartitions::V0(inner) => inner.into(),
+            KafkaResponseBodyDescribeTopicPartitions::V0(inner) => inner.serialize(writer, data),
         }
     }
 }
 
-impl Into<Vec<u8>> for KafkaResponseBodyDescribeTopicPartitionsV0 {
-    fn into(self) -> Vec<u8> {
-        self.throttle_time_ms
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
-                self.topics,
-                Topic::into,
-            ))
-            .chain((-1i8).to_be_bytes())
-            .chain(encode_tagged_fields_to_stream(Vec::new()))
-            .collect()
+impl KafkaSeriarize for KafkaResponseBodyDescribeTopicPartitionsV0 {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
+        writer.write_all(&self.throttle_time_ms.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.topics, |writer, topic| {
+            topic.serialize(writer, ())?;
+            write_kafka_tagged_fields_stream(writer, Vec::new())
+        })?;
+        writer.write_all(&(-1i8).to_be_bytes())?;
+        write_kafka_tagged_fields_stream(writer, Vec::new())
     }
 }
 
-impl Into<Vec<u8>> for Topic {
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for Topic {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
+        writer.write_all(&error_code.to_be_bytes())?;
+        write_compact_string_stream(writer, self.name)?;
+        writer.write_all(&self.id)?;
         let is_internal: i8 = if self.is_internal { 0 } else { 1 };
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(encode_string_to_compact_string_stream(self.name))
-            .chain(self.id)
-            .chain(is_internal.to_be_bytes())
-            .chain(encode_vec_to_kafka_compact_array_stream::<_, _, Vec<u8>>(
-                self.partitions,
-                Partition::into,
-            ))
-            .chain(self.authorized_operation.to_be_bytes())
-            .chain(encode_tagged_fields_to_stream(Vec::new()))
-            .collect()
+        writer.write_all(&is_internal.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.partitions, |writer, partition| {
+            partition.serialize(writer, ())?;
+            write_kafka_tagged_fields_stream(writer, Vec::new())
+        })?;
+        writer.write_all(&self.authorized_operation.to_be_bytes())?;
+        Ok(())
     }
 }
 
-impl Into<Vec<u8>> for Partition {
-    fn into(self) -> Vec<u8> {
+impl KafkaSeriarize for Partition {
+    type Error = std::io::Error;
+    type DependentData<'a> = ();
+
+    fn serialize<W: std::io::Write>(self, writer: &mut W, _data: ()) -> std::io::Result<()> {
         let error_code: i16 = self.error_code.into();
-        error_code
-            .to_be_bytes()
-            .into_iter()
-            .chain(self.index.to_be_bytes())
-            .chain(self.leader_id.to_be_bytes())
-            .chain(self.leader_epoch.to_be_bytes())
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                self.replicas,
-                i32::to_be_bytes,
-            ))
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                self.isrs,
-                i32::to_be_bytes,
-            ))
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                self.eligible_leader_replicas,
-                i32::to_be_bytes,
-            ))
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                self.last_know_klr,
-                i32::to_be_bytes,
-            ))
-            .chain(encode_vec_to_kafka_compact_array_stream(
-                self.offline_replicas,
-                i32::to_be_bytes,
-            ))
-            .chain(encode_tagged_fields_to_stream(Vec::new()))
-            .collect()
+        writer.write_all(&error_code.to_be_bytes())?;
+        writer.write_all(&self.index.to_be_bytes())?;
+        writer.write_all(&self.leader_id.to_be_bytes())?;
+        writer.write_all(&self.leader_epoch.to_be_bytes())?;
+        write_kafka_compact_array_stream(writer, self.replicas, |writer, replica| {
+            writer.write_all(&replica.to_be_bytes())
+        })?;
+        write_kafka_compact_array_stream(writer, self.isrs, |writer, isr| {
+            writer.write_all(&isr.to_be_bytes())
+        })?;
+        write_kafka_compact_array_stream(writer, self.eligible_leader_replicas, |writer, elr| {
+            writer.write_all(&elr.to_be_bytes())
+        })?;
+        write_kafka_compact_array_stream(writer, self.last_know_klr, |writer, lklr| {
+            writer.write_all(&lklr.to_be_bytes())
+        })?;
+        write_kafka_compact_array_stream(writer, self.offline_replicas, |writer, offline| {
+            writer.write_all(&offline.to_be_bytes())
+        })?;
+        Ok(())
     }
 }

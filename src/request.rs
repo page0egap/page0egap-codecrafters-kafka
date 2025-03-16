@@ -6,7 +6,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use error::RequestError;
 use header::KafkaRequestHeader;
 
-use crate::traits::TryParseFromReader;
+use crate::traits::KafkaDeseriarize;
 
 pub mod api_key;
 pub mod body;
@@ -36,11 +36,11 @@ impl KafkaRequest {
     }
 
     fn parse_header_and_body<R: Read>(reader: &mut R) -> Result<Self, RequestError> {
-        let header = KafkaRequestHeader::try_parse_from_reader(reader).map_err(|e| {
+        let header = KafkaRequestHeader::try_parse_from_reader(reader, ()).map_err(|e| {
             dbg!("header is invalid! {e}");
             e
         })?;
-        let body = KafkaRequestBody::try_parse_body(&header, reader).map_err(|e| {
+        let body = KafkaRequestBody::try_parse_from_reader(reader, &header).map_err(|e| {
             dbg!("body is invalid! {:?}", &e);
             e
         })?;
