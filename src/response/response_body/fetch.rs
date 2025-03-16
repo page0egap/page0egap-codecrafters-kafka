@@ -140,7 +140,7 @@ impl Topic {
 
         match (is_found, partitions.is_empty()) {
             (true, true) => Self::emtpy_topic(topic.topic_id.clone()),
-            (true, false) => todo!("Implement Topic::new"),
+            (true, false) => Self::emtpy_topic(topic.topic_id.clone()),
             (false, _) => Self::no_found(topic.topic_id.clone()),
         }
     }
