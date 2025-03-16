@@ -20,9 +20,9 @@ mod utils;
 #[derive(Debug, PartialEq)]
 #[brw(big)] // 指定使用大端序，与 Kafka 协议字节序保持一致
 pub struct RecordBatch {
-    pub base_offset: i64,            // int64
+    pub base_offset: i64, // int64
     #[br(temp)]
-    __batch_length: i32,           // int32
+    __batch_length: i32, // int32
     pub partition_leader_epoch: i32, // int32
 
     #[br(temp)]
@@ -81,9 +81,7 @@ impl BinWrite for RecordBatch {
         }
         // 计算 crc, The CRC32-C (Castagnoli) polynomial is used for the computation.
         // 使用crc库计算crc
-        let crc = crc::Crc::<u32>::new(&crc::CRC_32_CKSUM)
-            .checksum(&batch_after_crc)
-            .to_be_bytes();
+        let crc = crc32c::crc32c(&batch_after_crc);
         // 写入 开头字段
         self.base_offset.write_options(writer, endian, ())?;
         // 计算 batch_length, 为batch_length之后字段的大小
@@ -93,7 +91,7 @@ impl BinWrite for RecordBatch {
             .write_options(writer, endian, ())?;
         (0x02i8).write_options(writer, endian, ())?; // 写入 magic
                                                      // 写入 crc
-        writer.write_all(&crc)?;
+        crc.write_options(writer, endian, ())?;
         // 写入 crc 之后的字段
         writer.write_all(&batch_after_crc)?;
         Ok(())
@@ -336,7 +334,7 @@ mod tests {
         let original_batch = RecordBatch {
             base_offset: 1000,
             partition_leader_epoch: 0,
-            crc: 944764622,
+            crc: 2216891472,
             attributes: 0b0101_0010,
             last_offset_delta: 10,
             base_timestamp: 1690000000,
