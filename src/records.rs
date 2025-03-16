@@ -29,8 +29,7 @@ pub struct RecordBatch {
     #[br(assert(__magic == 0x02i8))]
     __magic: i8,
 
-    #[br(temp)]
-    __crc: u32,
+    pub crc: u32,
     pub attributes: i16,        // int16 (bit flags)
     pub last_offset_delta: i32, // int32
     pub base_timestamp: i64,    // int64
@@ -115,8 +114,8 @@ impl RecordBatch {
                 Ok(batch) => {
                     batch_count += 1;
                     println!(
-                        "Successfully read RecordBatch #{}",
-                        batch_count
+                        "Successfully read RecordBatch #{} with CRC: {:08X}",
+                        batch_count, batch.crc
                     );
                     // batch.print_summary();
                     batches.push(batch);
@@ -337,6 +336,7 @@ mod tests {
         let original_batch = RecordBatch {
             base_offset: 1000,
             partition_leader_epoch: 0,
+            crc: 944764622,
             attributes: 0b0101_0010,
             last_offset_delta: 10,
             base_timestamp: 1690000000,
