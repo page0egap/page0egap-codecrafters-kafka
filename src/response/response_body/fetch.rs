@@ -223,8 +223,6 @@ impl Partition {
     fn known_topic_whole_records(record_batch: &RecordBatch) -> Self {
         let mut records = Vec::new();
         record_batch.write(&mut Cursor::new(&mut records)).unwrap();
-        // 按照16进制的格式，dbg 打印出来的是 0x 开头的，所以这里也要加上 0x, 打印每一个records的前30个字节
-        dbg!(&records[0..30]);
         Self {
             partition_index: 0,
             error_code: KafkaError::None,
