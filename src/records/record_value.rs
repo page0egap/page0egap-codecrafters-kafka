@@ -19,7 +19,7 @@ pub enum RecordType {
 }
 
 #[binrw]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub struct ClusterMetadataRecord {
     /// 所有记录都共享的字段
@@ -102,7 +102,7 @@ impl ClusterMetadataRecord {
 /// 不同记录的枚举，根据 record_type 的值确定走哪个分支
 #[binrw]
 #[br(import { record_type: i8 })]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub enum ClusterMetadataValue {
     /// 当 record_type == 0 => BrokerRegistration
@@ -133,7 +133,7 @@ fn compute_record_type(payload: &ClusterMetadataValue) -> RecordType {
 }
 
 #[binrw]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub struct BrokerRegistrationRecord {
     pub broker_id: i32,
@@ -142,7 +142,7 @@ pub struct BrokerRegistrationRecord {
 }
 
 #[binrw]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub struct TopicRecord {
     #[br(parse_with=parse_compact_string)]
@@ -155,7 +155,7 @@ pub struct TopicRecord {
 }
 
 #[binrw]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub struct FeatureLevelRecord {
     #[br(parse_with=parse_compact_string)]
@@ -169,7 +169,7 @@ pub struct FeatureLevelRecord {
 
 /// Kafka 分区记录结构
 #[binrw]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)]
 pub struct PartitionRecord {
     /// 分区ID

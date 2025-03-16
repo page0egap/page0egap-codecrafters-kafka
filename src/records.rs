@@ -17,7 +17,7 @@ pub mod record_value;
 mod utils;
 
 #[binread]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[brw(big)] // 指定使用大端序，与 Kafka 协议字节序保持一致
 pub struct RecordBatch {
     pub base_offset: i64, // int64
@@ -211,7 +211,7 @@ impl RecordBatch {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Record {
     pub attributes: i8,
     pub timestamp_delta: i64,

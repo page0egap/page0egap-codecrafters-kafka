@@ -2,7 +2,7 @@ use binrw::{BinRead, BinWrite};
 use integer_encoding::VarIntReader;
 use integer_encoding::VarIntWriter;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RecordHeader {
     pub key: Vec<u8>,
     pub value: Vec<u8>,

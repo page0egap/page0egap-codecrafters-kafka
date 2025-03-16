@@ -190,7 +190,7 @@ pub struct Partition {
     log_start_offset: i64,
     aborted_transactions: Vec<AbortedTransaction>,
     preferred_read_replica: i32,
-    records: Vec<u8>,
+    records: Vec<RecordBatch>,
 }
 
 impl Partition {
@@ -221,8 +221,6 @@ impl Partition {
     }
 
     fn known_topic_whole_records(record_batch: &RecordBatch) -> Self {
-        let mut records = Vec::new();
-        record_batch.write_be(&mut Cursor::new(&mut records)).unwrap();
         Self {
             partition_index: 0,
             error_code: KafkaError::None,
@@ -231,7 +229,7 @@ impl Partition {
             log_start_offset: 0,
             aborted_transactions: Vec::new(),
             preferred_read_replica: -1,
-            records,
+            records: vec![record_batch.clone()],
         }
     }
 }
@@ -260,7 +258,18 @@ impl KafkaSeriarize for Partition {
             },
         )?;
         writer.write_i32::<BigEndian>(self.preferred_read_replica)?;
-        write_compact_vec_u8_stream(writer, self.records)?;
+        let mut records_u8 = Vec::new();
+        let mut records_u8_cursor = Cursor::new(&mut records_u8);
+        for (i, mut record) in self.records.into_iter().enumerate() {
+            record.base_offset = i as i64;
+            record.write_be(&mut records_u8_cursor).map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Failed to write record batch to u8",
+                )
+            })?;
+        }
+        write_compact_vec_u8_stream(writer, records_u8)?;
         Ok(())
     }
 }
