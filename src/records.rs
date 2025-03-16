@@ -60,7 +60,7 @@ impl RecordBatch {
             match Self::read(reader) {
                 Ok(batch) => {
                     batch_count += 1;
-                    println!("Successfully read RecordBatch #{} with crc {}", batch_count, batch.crc);
+                    println!("Successfully read RecordBatch #{} with crc {:08X}", batch_count, batch.crc);
                     // batch.print_summary();
                     batches.push(batch);
                 }
