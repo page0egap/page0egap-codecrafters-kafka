@@ -31,7 +31,8 @@ pub struct RecordBatch {
 
     pub crc: u32,
     pub attributes: i16,        // int16 (bit flags)
-    pub last_offset_delta: i32, // int32
+    #[br(temp)]
+    __last_offset_delta: i32, // int32
     pub base_timestamp: i64,    // int64
     pub max_timestamp: i64,     // int64
     pub producer_id: i64,       // int64
@@ -61,8 +62,9 @@ impl BinWrite for RecordBatch {
         // crc 之后的字段，写入 batch_after_crc_cursor，用于计算 crc
         self.attributes
             .write_options(&mut batch_after_crc_cursor, endian, ())?;
-        self.last_offset_delta
-            .write_options(&mut batch_after_crc_cursor, endian, ())?;
+        // last_offset_delta = records.len() - 1
+        let last_offset_delta = self.records.len() as i32 - 1;
+        last_offset_delta.write_options(&mut batch_after_crc_cursor, endian, ())?;
         self.base_timestamp
             .write_options(&mut batch_after_crc_cursor, endian, ())?;
         self.max_timestamp
@@ -185,7 +187,6 @@ impl RecordBatch {
         println!("  base_offset: {}", self.base_offset);
         println!("  partition_leader_epoch: {}", self.partition_leader_epoch);
         println!("  attributes: {:04X}", self.attributes);
-        println!("  last_offset_delta: {}", self.last_offset_delta);
         println!("  records count: {}", self.records.len());
 
         for (i, record) in self.records.iter().enumerate() {
@@ -336,7 +337,6 @@ mod tests {
             partition_leader_epoch: 0,
             crc: 2216891472,
             attributes: 0b0101_0010,
-            last_offset_delta: 10,
             base_timestamp: 1690000000,
             max_timestamp: 1690000050,
             producer_id: 42,

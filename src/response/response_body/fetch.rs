@@ -130,6 +130,23 @@ impl Topic {
             {
                 if topic.topic_id == topic_record.uuid {
                     is_found = true;
+                    let mut record_batch = record_batch.clone();
+                    record_batch.records = record_batch
+                        .records
+                        .into_iter()
+                        .skip(1)
+                        .filter(|record| {
+                            matches!(
+                                record.value.payload,
+                                crate::records::record_value::ClusterMetadataValue::Partition(_)
+                            )
+                        })
+                        .enumerate()
+                        .map(|(index, mut record)| {
+                            record.offset_delta = index as i32;
+                            record
+                        })
+                        .collect();
                     partitions.push(Partition::known_topic_whole_records(record_batch));
                 }
             }
@@ -220,7 +237,7 @@ impl Partition {
         }
     }
 
-    fn known_topic_whole_records(record_batch: &RecordBatch) -> Self {
+    fn known_topic_whole_records(record_batch: RecordBatch) -> Self {
         Self {
             partition_index: 0,
             error_code: KafkaError::None,
@@ -229,7 +246,7 @@ impl Partition {
             log_start_offset: 0,
             aborted_transactions: Vec::new(),
             preferred_read_replica: -1,
-            records: vec![record_batch.clone()],
+            records: vec![record_batch],
         }
     }
 }
