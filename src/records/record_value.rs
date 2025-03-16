@@ -302,4 +302,13 @@ mod tests {
         let decoded = ClusterMetadataRecord::read(&mut Cursor::new(&data)).unwrap();
         assert_eq!(decoded, original);
     }
+
+    #[test]
+    fn test_real_data() {
+        let real_raw = [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33];
+        let cluster_metadata_record =
+            ClusterMetadataRecord::read(&mut Cursor::new(&real_raw)).unwrap();
+        // test时候打印一下
+        println!("{:?}", cluster_metadata_record);
+    }
 }

@@ -131,27 +131,26 @@ impl Topic {
                 if topic.topic_id == topic_record.uuid {
                     is_found = true;
                     let mut record_batch = record_batch.clone();
-                    record_batch.records = record_batch.records.into_iter().take(1).collect();
-                    // record_batch.records = record_batch
-                    //     .records
-                    //     .into_iter()
-                    //     .skip(1)
-                    //     .filter(|record| {
-                    //         if let crate::records::record_value::ClusterMetadataValue::Partition(
-                    //             partition_record,
-                    //         ) = &record.value.payload
-                    //         {
-                    //             partition_record.topic_id == topic.topic_id
-                    //         } else {
-                    //             false
-                    //         }
-                    //     })
-                    //     .enumerate()
-                    //     .map(|(index, mut record)| {
-                    //         record.offset_delta = index as i32;
-                    //         record
-                    //     })
-                    //     .collect();
+                    record_batch.records = record_batch
+                        .records
+                        .into_iter()
+                        .skip(1)
+                        .filter(|record| {
+                            if let crate::records::record_value::ClusterMetadataValue::Partition(
+                                partition_record,
+                            ) = &record.value.payload
+                            {
+                                partition_record.topic_id == topic.topic_id
+                            } else {
+                                false
+                            }
+                        })
+                        .enumerate()
+                        .map(|(index, mut record)| {
+                            record.offset_delta = index as i32;
+                            record
+                        })
+                        .collect();
                     partitions.push(Partition::known_topic_whole_records(record_batch));
                 }
             }
