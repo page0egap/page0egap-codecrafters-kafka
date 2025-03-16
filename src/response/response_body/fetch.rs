@@ -115,25 +115,33 @@ pub struct Topic {
 impl Topic {
     pub fn new(topic: &request::body::fetch::Topic, record_batches: &[RecordBatch]) -> Self {
         let mut is_found = false;
+        let mut partitions = Vec::new();
         for record_batch in record_batches {
             record_batch
                 .records
                 .iter()
                 .for_each(|record| match &record.value.payload {
+                    crate::records::record_value::ClusterMetadataValue::Topic(topic_record) => {
+                        if topic.topic_id == topic_record.uuid {
+                            is_found = true;
+                        }
+                    }
                     crate::records::record_value::ClusterMetadataValue::Partition(
                         partition_record,
                     ) => {
                         if topic.topic_id == partition_record.topic_id {
                             is_found = true;
+                            partitions.push(Partition::unknown_topic_partition());
                         }
                     }
                     _ => (),
                 });
         }
-        if is_found {
-            todo!("Implement Topic::new")
+
+        match (is_found, partitions.is_empty()) {
+            (true, false) => todo!("Implement Topic::new"),
+            (true, true) | (false, _) => Self::no_found(topic.topic_id.clone()),
         }
-        Self::no_found(topic.topic_id.clone())
     }
 
     fn no_found(topic_id: [u8; 16]) -> Self {
