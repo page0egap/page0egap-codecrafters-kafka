@@ -201,10 +201,15 @@ impl RecordBatch {
                     println!("    type: BrokerRegistration")
                 }
                 record_value::ClusterMetadataValue::Topic(_) => println!("    type: Topic"),
-                record_value::ClusterMetadataValue::FeatureLevel(_) => {
-                    println!("    type: FeatureLevel")
+                record_value::ClusterMetadataValue::FeatureLevel(f) => {
+                    println!("    type: FeatureLevel");
+                    println!("    feature_level: {:?}", f);
                 }
-                record_value::ClusterMetadataValue::Partition(_) => println!("    type: Partition"),
+                record_value::ClusterMetadataValue::Partition(p) => {
+                    println!("    type: Partition");
+                    println!("    partition_id: {}", p.partition_id);
+                    println!("    topic_id: {:?}", p.topic_id);
+                }
             }
 
             println!("    headers count: {}", record.headers.len());
