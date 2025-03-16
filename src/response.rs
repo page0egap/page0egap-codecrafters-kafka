@@ -51,7 +51,10 @@ impl KafkaResponse {
                 header = KafkaResponseHeader::new_v1(request.correlation_id());
                 KafkaResponseBody::from_describe_topic_partitions_request_body(body)
             }
-            KafkaRequestBody::Fetch(body) => KafkaResponseBody::from_fetch_request_body(body),
+            KafkaRequestBody::Fetch(body) => {
+                header = KafkaResponseHeader::new_v1(request.correlation_id());
+                KafkaResponseBody::from_fetch_request_body(body)
+            }
         };
         Self { header, body }
     }
