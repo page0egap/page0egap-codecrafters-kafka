@@ -139,8 +139,9 @@ impl Topic {
         }
 
         match (is_found, partitions.is_empty()) {
+            (true, true) => Self::emtpy_topic(topic.topic_id.clone()),
             (true, false) => todo!("Implement Topic::new"),
-            (true, true) | (false, _) => Self::no_found(topic.topic_id.clone()),
+            (false, _) => Self::no_found(topic.topic_id.clone()),
         }
     }
 
@@ -148,6 +149,13 @@ impl Topic {
         Self {
             topic_id,
             partitions: vec![Partition::unknown_topic_partition()],
+        }
+    }
+
+    fn emtpy_topic(topic_id: [u8; 16]) -> Self {
+        Self {
+            topic_id,
+            partitions: vec![Partition::known_topic_emtpy_partition()],
         }
     }
 }
@@ -186,6 +194,19 @@ impl Partition {
         Self {
             partition_index: 0,
             error_code: KafkaError::UnknownTopicId,
+            high_watermark: 0,
+            last_stable_offset: 0,
+            log_start_offset: 0,
+            aborted_transactions: Vec::new(),
+            preferred_read_replica: -1,
+            records: Vec::new(),
+        }
+    }
+
+    fn known_topic_emtpy_partition() -> Self {
+        Self {
+            partition_index: 0,
+            error_code: KafkaError::None,
             high_watermark: 0,
             last_stable_offset: 0,
             log_start_offset: 0,
