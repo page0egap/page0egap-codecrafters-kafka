@@ -134,15 +134,13 @@ impl Topic {
                     record_batch.records = record_batch
                         .records
                         .into_iter()
+                        .skip(1)    // skip firt topic record
                         .filter(|record| {
                             if let crate::records::record_value::ClusterMetadataValue::Partition(
                                 partition_record,
                             ) = &record.value.payload
                             {
-                                false
-                            } else if let crate::records::record_value::ClusterMetadataValue::Topic(
-                                _,) = &record.value.payload {
-                                    true
+                                partition_record.topic_id == topic.topic_id
                             } else {
                                 false
                             }
@@ -153,7 +151,11 @@ impl Topic {
                             record
                         })
                         .collect();
-                    partitions.push(Partition::known_topic_whole_records(record_batch));
+                    if record_batch.records.is_empty() {
+                        partitions.push(Partition::known_topic_emtpy_partition());
+                    } else {
+                        partitions.push(Partition::known_topic_whole_records(record_batch));
+                    }
                 }
             }
         }
