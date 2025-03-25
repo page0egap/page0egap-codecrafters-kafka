@@ -158,6 +158,7 @@ impl Topic {
                     if record_batch.records.is_empty() {
                         partitions.push(Partition::known_topic_emtpy_partition());
                     } else {
+                        dbg!("record_batch.records.len() = {}", record_batch.records.len());
                         partitions.push(Partition::known_topic_whole_records(record_batch));
                     }
                 }
