@@ -134,13 +134,17 @@ impl Topic {
                     record_batch.records = record_batch
                         .records
                         .into_iter()
-                        .skip(1)    // skip firt topic record
+                        .skip(1) // skip firt topic record
                         .filter(|record| {
                             if let crate::records::record_value::ClusterMetadataValue::Partition(
                                 partition_record,
                             ) = &record.value.payload
                             {
                                 partition_record.topic_id == topic.topic_id
+                                    && topic
+                                        .partitions
+                                        .iter()
+                                        .any(|p| p.index == partition_record.partition_id)
                             } else {
                                 false
                             }

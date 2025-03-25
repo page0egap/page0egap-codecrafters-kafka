@@ -170,7 +170,7 @@ impl KafkaDeseriarize for Topic {
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Partition {
-    index: i32,
+    pub index: i32,
     current_leader_epoch: i32,
     fetch_offset: i64,
     last_fetched_epoch: i32,
